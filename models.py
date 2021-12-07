@@ -12,10 +12,13 @@ class User(Base):
     first_name = Column(String)
     last_name = Column(String)
 
+    groupName = Column(String)
+    subGroup = Column(Integer, default=0)
+
     learnUserName = Column(String)
     learnPassword = Column(String)
-    learnCoockie = Column(String)
-    pasSubscribed = Column(Boolean, default=True)
+    learnCookie = Column(String)
+    learnSubscribed = Column(Boolean, default=True)
 
 
 engine = create_engine("sqlite:///database.sqlite3")
@@ -31,6 +34,10 @@ def getUserByTelegramId(telegramId):
     return session.query(User).filter_by(telegramId=telegramId)[0]
 
 
+def getUsers():
+    return session.query(User).all()
+
+
 def createUserIfNessessary(telegramId: int, firstName: str, lastName: str, userName: str):
     count = 0
     for user in session.query(User).filter_by(telegramId=telegramId):
@@ -43,7 +50,7 @@ def createUserIfNessessary(telegramId: int, firstName: str, lastName: str, userN
     return None
 
 
-def updateLearnUserNameAndPassword(telegramId, userName, password):
+def updateLearnUserNameAndPassword(telegramId: int, userName: str, password: str):
     user = getUserByTelegramId(telegramId)
     setattr(user, 'learnUserName', userName)
     setattr(user, 'learnPassword', password)
@@ -52,5 +59,16 @@ def updateLearnUserNameAndPassword(telegramId, userName, password):
 
 def updateUserCookie(telegramId: int, cookies: str):
     user = getUserByTelegramId(telegramId)
-    setattr(user, 'learnCoockie', cookies)
+    setattr(user, 'learnCookie', cookies)
+    session.commit()
+
+def updateUserGroup(telegramId: int, groupName: str):
+    user = getUserByTelegramId(telegramId)
+    setattr(user, 'groupName', groupName)
+    session.commit()
+
+
+def updateUserSubGroup(telegramId: int, subGroup: int):
+    user = getUserByTelegramId(telegramId)
+    setattr(user, 'subGroup', subGroup)
     session.commit()
