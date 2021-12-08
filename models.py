@@ -1,5 +1,10 @@
-from sqlalchemy import Column, Integer, String, Boolean, create_engine
+import os
+
+from dotenv import load_dotenv
+from sqlalchemy import Column, Integer, String, Boolean, create_engine, Text
 from sqlalchemy.orm import declarative_base, sessionmaker
+
+load_dotenv()
 
 Base = declarative_base()
 
@@ -8,20 +13,21 @@ class User(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True)
     telegramId = Column(Integer, unique=True)
-    username = Column(String)
-    first_name = Column(String)
-    last_name = Column(String)
+    username = Column(String(100))
+    first_name = Column(String(100))
+    last_name = Column(String(100))
 
-    groupName = Column(String)
-    subGroup = Column(Integer, default=0)
+    groupName = Column(String(100))
+    subGroup = Column(Integer, default=1)
 
-    learnUserName = Column(String)
-    learnPassword = Column(String)
-    learnCookie = Column(String)
+    learnUserName = Column(String(100))
+    learnPassword = Column(String(100))
+    learnCookie = Column(Text)
     learnSubscribed = Column(Boolean, default=True)
 
 
-engine = create_engine("sqlite:///database.sqlite3")
+engine = create_engine(
+    f"mysql+pymysql://{os.getenv('DB_LOGIN')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_SERVER')}/{os.getenv('DB_NAME')}")
 Session = sessionmaker()
 Session.configure(bind=engine)
 session = Session()
@@ -62,6 +68,7 @@ def updateUserCookie(telegramId: int, cookies: str):
     setattr(user, 'learnCookie', cookies)
     session.commit()
 
+
 def updateUserGroup(telegramId: int, groupName: str):
     user = getUserByTelegramId(telegramId)
     setattr(user, 'groupName', groupName)
@@ -71,4 +78,12 @@ def updateUserGroup(telegramId: int, groupName: str):
 def updateUserSubGroup(telegramId: int, subGroup: int):
     user = getUserByTelegramId(telegramId)
     setattr(user, 'subGroup', subGroup)
+    session.commit()
+
+
+def logoutUser(telegramId: int):
+    user = getUserByTelegramId(telegramId)
+    setattr(user, 'learnUserName', '')
+    setattr(user, 'learnPassword', '')
+    setattr(user, 'learnCookie', '')
     session.commit()

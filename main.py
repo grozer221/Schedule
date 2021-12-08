@@ -10,13 +10,15 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Command
 from aiogram.utils import executor
 from dotenv import load_dotenv
-from fernet import Fernet
 
 from States import *
-from keyBoards import mainKeyboard, Profile, Marks, LogIn, Settings, settingsKeyboard, SettingsChangeSubGroup, \
-    subGroupsKeyboard, SubGroupTwo, SubGroupOne
-from models import createUserIfNessessary, updateLearnUserNameAndPassword, getUsers, updateUserSubGroup
-from requestsZTU import getProfile, getMarks, loginInLearn, getScheduleForToday
+from keyBoards import mainKeyboard, Profile, Marks, Settings, settingsKeyboard, SettingsChangeSubGroup, \
+    subGroupsKeyboard, SubGroupTwo, SubGroupOne, Schedule, scheduleKeyboard, ScheduleForToday, ScheduleForTomorrow, \
+    ScheduleForWeek, ScheduleForTwoWeek, LogOut
+from models import createUserIfNessessary, updateLearnUserNameAndPassword, getUsers, updateUserSubGroup, \
+    getUserByTelegramId, logoutUser
+from requestsZTU import getProfile, getMarks, loginInLearn, getScheduleWithLinksForToday, getScheduleForToday, \
+    getScheduleForWeek, getScheduleForTwoWeek, isAuth
 
 load_dotenv()
 
@@ -34,8 +36,8 @@ async def buildSchedule():
     schedules = {}
     users = getUsers()
     for user in users:
-        schedules[user.telegramId] = getScheduleForToday(user.telegramId)
-    print("!!!Schedule is built!!!\n", schedules)
+        schedules[user.telegramId] = getScheduleWithLinksForToday(user.telegramId)
+    print("!!!Schedule is built!!!")
 
 
 async def notify():
@@ -48,7 +50,7 @@ async def notify():
                 subjectTime = subject['time'].split('-')[0]
                 if currentTimePlus10 == subjectTime:
                     await bot.send_message(telegramId,
-                                           f'<strong>{subject["name"]}</strong> / {subject["cabinet"]}/ через 10 хвилин / {subject["link"]}')
+                                           f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / через 10 хвилин / {subject["link"]}')
 
 
 async def buildScheduleAndNotify():
@@ -80,9 +82,64 @@ schedules = []
 @dp.message_handler(Command("start"), state=None)
 async def start(message: types.Message, state: FSMContext):
     await state.finish()
-    await message.answer("Виберіть дію:", reply_markup=mainKeyboard)
     createUserIfNessessary(message.from_user.id, message.from_user.first_name, message.from_user.last_name,
                            message.from_user.username)
+    result = isAuth(message.from_user.id)
+    if result == True:
+        await message.answer("Виберіть дію:", reply_markup=mainKeyboard)
+    else:
+        await writeUserName(message)
+
+
+@dp.message_handler(lambda message: message.text == Schedule)
+async def schedule(message: types.Message):
+    await message.answer("Розклад:", reply_markup=scheduleKeyboard)
+    await SelectScheduleTypeState.first()
+
+
+@dp.message_handler(state=SelectScheduleTypeState.ReadScheduleType)
+async def readScheduleType(message: types.Message, state: FSMContext):
+    scheduleType = message.text
+    user = getUserByTelegramId(message.from_user.id)
+    if scheduleType == ScheduleForToday:
+        schedule = getScheduleForToday(user.groupName, user.subGroup)
+        print(type(schedule))
+        if type(schedule) == str:
+            await message.answer(schedule, reply_markup=mainKeyboard)
+        elif type(schedule) == list:
+            for subject in schedule:
+                await message.answer(
+                    f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / {subject["time"]} / {subject["teacher"].split(" ")[0]}',
+                    reply_markup=mainKeyboard)
+        else:
+            await message.answer('Помилка!!', reply_markup=mainKeyboard)
+
+    elif scheduleType == ScheduleForTomorrow:
+        await message.answer("На завтра", reply_markup=mainKeyboard)
+
+    elif scheduleType == ScheduleForWeek:
+        schedule = getScheduleForWeek(user.groupName, user.subGroup)
+        for day in schedule:
+            text = f'📅 <i><strong>{day}</strong></i>  {"🤯" if len(schedule[day]) > 3 else ""}\n'
+            for i, subject in enumerate(schedule[day]):
+                text += f'<strong>{i + 1}) {subject["name"]}</strong> / {subject["cabinet"]} / {subject["time"]} / {subject["teacher"]}\n'
+            await message.answer(text, reply_markup=mainKeyboard)
+
+    elif scheduleType == ScheduleForTwoWeek:
+        schedule = getScheduleForTwoWeek(user.groupName, user.subGroup)
+        for i, keyWeek in enumerate(schedule):
+            await message.answer(f'🆘                   <strong>{keyWeek}</strong>', reply_markup=mainKeyboard)
+            for keyDay in schedule[keyWeek]:
+                text = f'📅 <i><strong>{keyDay}</strong></i>  {"🤯" if len(schedule[keyWeek][keyDay]) > 3 else ""}\n'
+                for j, subject in enumerate(schedule[keyWeek][keyDay]):
+                    text += f'<strong>{j + 1}) {subject["name"]}</strong> / {subject["cabinet"]} / {subject["time"]} / {subject["teacher"]}\n'
+                await message.answer(text, reply_markup=mainKeyboard)
+            if i != len(schedule) - 1:
+                await message.answer(f'ᅠᅠᅠᅠᅠᅠ                   ᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠ', reply_markup=mainKeyboard)
+
+    else:
+        await message.answer("Не правильно вибраний розклад!", reply_markup=mainKeyboard)
+    await state.finish()
 
 
 @dp.message_handler(lambda message: message.text == Profile)
@@ -96,8 +153,8 @@ async def marks(message: types.Message):
         await message.answer(msg)
 
 
-@dp.message_handler(lambda message: message.text == LogIn)
 async def writeUserName(message: types.Message):
+    await message.answer("<strong>Авторизація в особистому кабінеті</strong>", reply_markup=types.ReplyKeyboardRemove())
     await message.answer("Learn логін:", reply_markup=types.ReplyKeyboardRemove())
     await LearnLogInState.first()
 
@@ -118,7 +175,6 @@ async def submitLogin(message: types.Message, state: FSMContext):
     learnPassword = message.text
     await message.delete()
     async with state.proxy() as data:
-        print(data)
         learnUserName = data["learnUserName"]
 
     await state.finish()
@@ -131,7 +187,8 @@ async def submitLogin(message: types.Message, state: FSMContext):
         updateLearnUserNameAndPassword(message.from_user.id, learnUserName, learnPassword)
         await message.answer(f'Ви успішно увійшли в особистий кабінет', reply_markup=mainKeyboard)
     else:
-        await message.answer(f'Не правильний логін або пароль', reply_markup=mainKeyboard)
+        await message.answer(f'Не правильний логін або пароль')
+        await writeUserName(message)
 
 
 @dp.message_handler(lambda message: message.text == Settings)
@@ -147,7 +204,7 @@ async def readSettingsAction(message: types.Message):
         await message.answer("Виберіть підгрупу:", reply_markup=subGroupsKeyboard)
         await ChangeSubGroupState.first()
     else:
-        await message.answer("Не правильно вибране налаштування!", reply_markup=types.ReplyKeyboardRemove())
+        await message.answer("Не правильно вибране налаштування!", reply_markup=mainKeyboard)
 
 
 @dp.message_handler(state=ChangeSubGroupState.ReadSubGroup)
@@ -155,9 +212,9 @@ async def changeSubGroup(message: types.Message, state: FSMContext):
     await state.finish()
     subGroup = message.text
     if subGroup != SubGroupOne and subGroup != SubGroupTwo:
-        await message.answer("Не правильно вибрана підгрупа!", reply_markup=types.ReplyKeyboardRemove())
-        await message.answer("Виберіть налаштування:", reply_markup=settingsKeyboard)
-        await SettingsState.first()
+        await message.answer("Не правильно вибрана підгрупа!", reply_markup=mainKeyboard)
+        await message.answer("Виберіть підгрупу:", reply_markup=subGroupsKeyboard)
+        await ChangeSubGroupState.first()
     else:
         if subGroup == SubGroupOne:
             subGroup = 1
@@ -165,7 +222,14 @@ async def changeSubGroup(message: types.Message, state: FSMContext):
             subGroup = 2
 
         updateUserSubGroup(message.from_user.id, subGroup)
-        await message.answer('Ви успішно змінили групу', reply_markup=types.ReplyKeyboardRemove())
+        await message.answer('Групу успішно змінено', reply_markup=mainKeyboard)
+
+
+@dp.message_handler(lambda message: message.text == LogOut)
+async def logout(message: types.Message):
+    logoutUser(message.from_user.id)
+    await message.answer("Ви вийшли із особистого кабінету")
+    await writeUserName(message)
 
 
 if __name__ == '__main__':

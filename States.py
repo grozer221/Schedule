@@ -5,9 +5,14 @@ class LearnLogInState(StatesGroup):
     ReadUserName = State()
     ReadPassword = State()
 
+
 class SettingsState(StatesGroup):
     ReadSettingsAction = State()
 
 
 class ChangeSubGroupState(StatesGroup):
     ReadSubGroup = State()
+
+
+class SelectScheduleTypeState(StatesGroup):
+    ReadScheduleType = State()

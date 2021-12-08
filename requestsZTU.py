@@ -11,7 +11,66 @@ urlSchedule = urlMain + '/site/schedule'
 urlRozkladGroup = 'https://rozklad.ztu.edu.ua/schedule/group/'
 
 
+def getScheduleByRozkladPairItemsForDay(rozkladPairItems, subGroup: int):
+    rozkladSubjects = []
+    for pairItem in rozkladPairItems:
+        if pairItem.text.rstrip().lstrip() == '':
+            continue
+
+        subject = {}
+        subject['time'] = pairItem['hour']
+        try:
+            subjectItem = pairItem.find_all('div', {'class': 'one'})[subGroup - 1]
+        except:
+            subjectItem = pairItem
+        if subjectItem.text.rstrip().lstrip() == '':
+            continue
+        subject['cabinet'] = subjectItem.find('span', {'class': 'room'}).text.rstrip().lstrip()
+        subject['name'] = subjectItem.find('div', {'class': 'subject'}).text
+        teacher = subjectItem.find('div', {'class': 'teacher'}).text
+        emoji = ''
+        if 'Морозов Андрій Васильович' in teacher:
+            emoji += ' 🧙'
+        if 'Фізвиховання' in subject['name']:
+            emoji += ' 🏓'
+        if 'Лисогор Юрій Іванович' in teacher:
+            emoji += ' 🫖🧑🏻‍🎨'
+        if 'Окунькова Оксана Олексіївна' in teacher:
+            emoji += ' 🐡'
+        if 'Програмування мовою Python' in subject['name']:
+            emoji += ' 💩'
+        if 'Чижмотря Олексій Володимирович' in teacher:
+            emoji += ' 🚷'
+        if 'Давидчук Сергій Петрович' in subject['name']:
+            emoji += ' 🔫'
+        if 'Коротун Ольга Володимирівна' in teacher:
+            emoji += ' 🐉'
+        if 'Локтікова Тамара Миколаївна' in teacher:
+            emoji += ' 0️⃣1️⃣'
+        if 'Сугоняк Інна Іванівна' in teacher:
+            emoji += ' 💽'
+        if 'Колос Катерина Ростиславівна' in teacher:
+            emoji += ' 😡'
+        if 'Семенець Сергій Петрович' in teacher:
+            emoji += ' 🎰'
+        if 'Бабій Василь Дмитрович' in teacher:
+            emoji += ' 🤸'
+        if 'Іноземна мова' in subject['name']:
+            emoji += ' 🇺🇸'
+        if 'Котенко Володимир Миколайович' in teacher:
+            emoji += ' ⚡️'
+        if 'Філіпов Валерій Олександрович' in teacher:
+            emoji += ' ⚡️'
+        if 'Біляк Ірина Валеріївна' in teacher:
+            emoji += ' 🐱'
+        subject['teacher'] = teacher.split(" ")[0] + emoji
+
+        rozkladSubjects.append(subject)
+    return rozkladSubjects
+
+
 def loginInLearn(telegramId: int, learnUserName: str, learnPassword: str):
+    print('login in learn')
     reqSession = requests.Session()
     responeLoginGet = reqSession.get(urlLogin)
     soup = BeautifulSoup(responeLoginGet.text)
@@ -23,7 +82,6 @@ def loginInLearn(telegramId: int, learnUserName: str, learnPassword: str):
         'LoginForm[rememberMe]': 1,
     }
     responseLoginPost = reqSession.post(urlLogin, data=data)
-    print(responseLoginPost.status_code)
     if "Неправильний логін або пароль" in responseLoginPost.text:
         return False
     soup = BeautifulSoup(responseLoginPost.text)
@@ -37,6 +95,23 @@ def loginInLearn(telegramId: int, learnUserName: str, learnPassword: str):
     ]
     updateUserCookie(telegramId, json.dumps(cookies))
     return True
+
+
+def isAuth(telegramId: int):
+    user = getUserByTelegramId(telegramId)
+    if user is None or user.learnUserName is None or user.learnUserName is '' or user.learnPassword is None or user.learnPassword is '':
+        return False
+    if user.learnCookie is not None and user.learnCookie != '':
+        print('11')
+        reqSession = requests.Session()
+        for cookie in json.loads(user.learnCookie):
+            reqSession.cookies.set(**cookie)
+        response = reqSession.get(urlMain)
+        if 'Вхід в електронний кабінет студента' in response.text:
+            return loginInLearn(user.telegramId, user.learnUserName, user.learnPassword)
+        return True
+    else:
+        return loginInLearn(user.telegramId, user.learnUserName, user.learnPassword)
 
 
 def getProfile(telegramId: int):
@@ -66,7 +141,6 @@ def getMarks(telegramId: int):
     response = reqSession.get(urlMain)
     soup = BeautifulSoup(response.text)
     tabPanelItems = soup.find_all('div', {'role': 'tabpanel'})
-    print(tabPanelItems)
     navTabsItem = soup.find('ul', {'class': 'nav nav-tabs'})
     tabsItems = navTabsItem.find_all('a', {'role': 'tab'})
 
@@ -86,7 +160,7 @@ def getMarks(telegramId: int):
     return result
 
 
-def getScheduleForToday(telegramId: int):
+def getScheduleWithLinksForToday(telegramId: int):
     user = getUserByTelegramId(telegramId)
     if user.learnCookie:
         reqSession = requests.Session()
@@ -109,23 +183,7 @@ def getScheduleForToday(telegramId: int):
         responseRozklad = reqSession.get(urlRozkladGroup + user.groupName)
         soup = BeautifulSoup(responseRozklad.text)
         rozkladPairItems = soup.find_all('td', {'class': 'content selected'})
-        rozkladSubjects = []
-        for pairItem in rozkladPairItems:
-            if pairItem.text.rstrip().lstrip() == '':
-                continue
-
-            subject = {}
-            subject['time'] = pairItem['hour']
-            try:
-                subjectItem = pairItem.find_all('div', {'class': 'one'})[user.subGroup - 1]
-            except:
-                subjectItem = pairItem
-            if subjectItem.text.rstrip().lstrip() == '':
-                continue
-            subject['cabinet'] = subjectItem.find('span', {'class': 'room'}).text.rstrip().lstrip()
-            subject['teacher'] = subjectItem.find('div', {'class': 'teacher'}).text
-            subject['name'] = subjectItem.find('div', {'class': 'subject'}).text
-            rozkladSubjects.append(subject)
+        rozkladSubjects = getScheduleByRozkladPairItemsForDay(rozkladPairItems, user.subGroup)
 
         scheduleResult = []
         for subject in subjects:
@@ -135,3 +193,63 @@ def getScheduleForToday(telegramId: int):
                 scheduleResult.append(subject)
         return scheduleResult
     return None
+
+
+def getScheduleForToday(groupName: str, subGroup: int):
+    responseRozklad = requests.get(urlRozkladGroup + groupName)
+    soup = BeautifulSoup(responseRozklad.text)
+
+    rozkladHeaderItem = soup.find('th', {'class': 'selected'})
+    rozkladDay = rozkladHeaderItem.find('div', {'class': 'message'}).text
+    if 'сьогодні' in rozkladDay:
+        rozkladPairItems = soup.find_all('td', {'class': 'content selected'})
+        rozkladSubjects = getScheduleByRozkladPairItemsForDay(rozkladPairItems, subGroup)
+        return rozkladSubjects
+    else:
+        return 'Пар сьогодні немає'
+
+
+def getScheduleFromTable(currentWeekTableItem, subGroup):
+    trItems = currentWeekTableItem.find_all('tr')
+    thItems = trItems[0].find_all('th')
+    tdItems = []
+    for trItem in trItems:
+        tdRowItems = trItem.find_all('td')
+        tdItems.append(tdRowItems)
+    schedule = {}
+    for j in range(0, len(tdItems[1])):
+        scheduleForDay = {}
+        scheduleForDayItems = []
+        for i in range(1, len(trItems)):
+            scheduleForDayItems.append(tdItems[i][j])
+        rozkladSubjects = getScheduleByRozkladPairItemsForDay(scheduleForDayItems, subGroup)
+        weekDayItem = thItems[j + 1]
+        weekDay = weekDayItem.text
+        messageItem = weekDayItem.find('div', {'class': 'message'})
+        if messageItem is not None:
+            weekDay = f"{weekDay.replace(messageItem.text, '')} ({messageItem.text})"
+        schedule[weekDay] = rozkladSubjects
+    return schedule
+
+
+def getScheduleForWeek(groupName: str, subGroup: int):
+    responseRozklad = requests.get(urlRozkladGroup + groupName)
+    soup = BeautifulSoup(responseRozklad.text)
+    tableItems = soup.find_all('table', {'class': 'schedule'})
+    currentWeekTableItem = None
+    for tableItem in tableItems:
+        selectedTableHeaderItem = tableItem.find('th', {'class': 'selected'})
+        if selectedTableHeaderItem is not None:
+            currentWeekTableItem = tableItem
+
+    return getScheduleFromTable(currentWeekTableItem, subGroup)
+
+
+def getScheduleForTwoWeek(groupName: str, subGroup: int):
+    responseRozklad = requests.get(urlRozkladGroup + groupName)
+    soup = BeautifulSoup(responseRozklad.text)
+    tableItems = soup.find_all('table', {'class': 'schedule'})
+    schedule = {}
+    for i, tableItem in enumerate(tableItems):
+        schedule[f'{i + 1} тиждень'] = getScheduleFromTable(tableItem, subGroup)
+    return schedule
