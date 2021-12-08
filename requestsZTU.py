@@ -70,7 +70,6 @@ def getScheduleByRozkladPairItemsForDay(rozkladPairItems, subGroup: int):
 
 
 def loginInLearn(telegramId: int, learnUserName: str, learnPassword: str):
-    print('login in learn')
     reqSession = requests.Session()
     responeLoginGet = reqSession.get(urlLogin)
     soup = BeautifulSoup(responeLoginGet.text)
@@ -102,7 +101,6 @@ def isAuth(telegramId: int):
     if user is None or user.learnUserName is None or user.learnUserName is '' or user.learnPassword is None or user.learnPassword is '':
         return False
     if user.learnCookie is not None and user.learnCookie != '':
-        print('11')
         reqSession = requests.Session()
         for cookie in json.loads(user.learnCookie):
             reqSession.cookies.set(**cookie)

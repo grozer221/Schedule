@@ -81,6 +81,7 @@ schedules = []
 
 @dp.message_handler(Command("start"), state=None)
 async def start(message: types.Message, state: FSMContext):
+    print(f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: /start')
     await state.finish()
     createUserIfNessessary(message.from_user.id, message.from_user.first_name, message.from_user.last_name,
                            message.from_user.username)
@@ -93,6 +94,7 @@ async def start(message: types.Message, state: FSMContext):
 
 @dp.message_handler(lambda message: message.text == Schedule)
 async def schedule(message: types.Message):
+    print(f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: schedule')
     await message.answer("Розклад:", reply_markup=scheduleKeyboard)
     await SelectScheduleTypeState.first()
 
@@ -103,7 +105,6 @@ async def readScheduleType(message: types.Message, state: FSMContext):
     user = getUserByTelegramId(message.from_user.id)
     if scheduleType == ScheduleForToday:
         schedule = getScheduleForToday(user.groupName, user.subGroup)
-        print(type(schedule))
         if type(schedule) == str:
             await message.answer(schedule, reply_markup=mainKeyboard)
         elif type(schedule) == list:
@@ -144,16 +145,19 @@ async def readScheduleType(message: types.Message, state: FSMContext):
 
 @dp.message_handler(lambda message: message.text == Profile)
 async def profile(message: types.Message):
+    print(f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: profile')
     await message.answer(getProfile(message.from_user.id))
 
 
 @dp.message_handler(lambda message: message.text == Marks)
 async def marks(message: types.Message):
+    print(f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: marks')
     for msg in getMarks(message.from_user.id):
         await message.answer(msg)
 
 
 async def writeUserName(message: types.Message):
+    print(f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: login')
     await message.answer("<strong>Авторизація в особистому кабінеті</strong>", reply_markup=types.ReplyKeyboardRemove())
     await message.answer("Learn логін:", reply_markup=types.ReplyKeyboardRemove())
     await LearnLogInState.first()
@@ -193,6 +197,7 @@ async def submitLogin(message: types.Message, state: FSMContext):
 
 @dp.message_handler(lambda message: message.text == Settings)
 async def settings(message: types.Message):
+    print(f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: settings')
     await message.answer("Виберіть налаштування:", reply_markup=settingsKeyboard)
     await SettingsState.first()
 
@@ -205,6 +210,7 @@ async def readSettingsAction(message: types.Message):
         await ChangeSubGroupState.first()
     else:
         await message.answer("Не правильно вибране налаштування!", reply_markup=mainKeyboard)
+        await settings(message)
 
 
 @dp.message_handler(state=ChangeSubGroupState.ReadSubGroup)
@@ -227,6 +233,7 @@ async def changeSubGroup(message: types.Message, state: FSMContext):
 
 @dp.message_handler(lambda message: message.text == LogOut)
 async def logout(message: types.Message):
+    print(f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: logout')
     logoutUser(message.from_user.id)
     await message.answer("Ви вийшли із особистого кабінету")
     await writeUserName(message)
