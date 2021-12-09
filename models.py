@@ -27,7 +27,7 @@ class User(Base):
 
 
 engine = create_engine(
-    f"mysql+pymysql://{os.getenv('DB_LOGIN')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_SERVER')}/{os.getenv('DB_NAME')}")
+    x.replace("postgres://", "postgresql://", 1) if (x := os.environ.get('DATABASE_URL')) else os.getenv('LOCAL_DB'))
 Session = sessionmaker()
 Session.configure(bind=engine)
 session = Session()
