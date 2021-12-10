@@ -3,3 +3,4 @@ venv
 database.sqlite3
 __pycache__
 .idea
+tests.py

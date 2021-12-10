@@ -1,25 +1,28 @@
 from aiogram import types
 
-Schedule = 'Розклад'
+ScheduleForToday = 'На сьогодні'
+ScheduleForTomorrow = 'На завтра'
+ScheduleForTwoWeeks = 'На 2 тижні'
+More = 'Більше'
+mainKeyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+buttons = [ScheduleForToday, ScheduleForTomorrow, ScheduleForTwoWeeks, More]
+mainKeyboard.add(*buttons)
+
 Profile = 'Профіль'
 Marks = 'Оцінки'
 Settings = 'Налаштування'
 LogOut = 'Вийти'
-mainKeyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-buttons = [Schedule, Profile, Marks, Settings, LogOut]
-mainKeyboard.add(*buttons)
-
-ScheduleForToday = 'На сьогодні'
-ScheduleForTomorrow = 'На завтра'
-ScheduleForWeek = 'На тиждень'
-ScheduleForTwoWeek = 'На 2 тижні'
-scheduleKeyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-buttons = [ScheduleForToday, ScheduleForTomorrow, ScheduleForWeek, ScheduleForTwoWeek]
-scheduleKeyboard.add(*buttons)
+Back = 'Назад'
+moreKeyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+buttons = [Profile, Marks, Settings, LogOut, Back]
+moreKeyboard.add(*buttons)
 
 SettingsChangeSubGroup = 'Змінити підгрупу'
+SettingsChangeMinutesBeforeLessonNotification = 'Змінити час сповіщення перед парою'
+SettingsChangeMinutesBeforeLessonsNotification = 'Змінити час сповіщення перед парами'
 settingsKeyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-buttons = [SettingsChangeSubGroup]
+buttons = [SettingsChangeSubGroup, SettingsChangeMinutesBeforeLessonNotification,
+           SettingsChangeMinutesBeforeLessonsNotification]
 settingsKeyboard.add(*buttons)
 
 SubGroupOne = 'Перша'

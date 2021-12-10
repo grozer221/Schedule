@@ -25,6 +25,9 @@ class User(Base):
     learnCookie = Column(Text)
     learnSubscribed = Column(Boolean, default=True)
 
+    minutesBeforeLessonNotification = Column(Integer, default=10)
+    minutesBeforeLessonsNotification = Column(Integer, default=60)
+
 
 engine = create_engine(
     x.replace("postgres://", "postgresql://", 1) if (x := os.environ.get('DATABASE_URL')) else os.getenv('LOCAL_DB'))
@@ -78,6 +81,17 @@ def updateUserGroup(telegramId: int, groupName: str):
 def updateUserSubGroup(telegramId: int, subGroup: int):
     user = getUserByTelegramId(telegramId)
     setattr(user, 'subGroup', subGroup)
+    session.commit()
+
+def updateUserMinutesBeforeLessonsNotification(telegramId: int, minutesBeforeLessonsNoification: int):
+    user = getUserByTelegramId(telegramId)
+    setattr(user, 'minutesBeforeLessonsNotification', minutesBeforeLessonsNoification)
+    session.commit()
+
+
+def updateUserMinutesBeforeLessonNotification(telegramId: int, minutesBeforeLessonNoification: int):
+    user = getUserByTelegramId(telegramId)
+    setattr(user, 'minutesBeforeLessonNotification', minutesBeforeLessonNoification)
     session.commit()
 
 

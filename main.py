@@ -13,12 +13,14 @@ from dotenv import load_dotenv
 
 from States import *
 from keyBoards import mainKeyboard, Profile, Marks, Settings, settingsKeyboard, SettingsChangeSubGroup, \
-    subGroupsKeyboard, SubGroupTwo, SubGroupOne, Schedule, scheduleKeyboard, ScheduleForToday, ScheduleForTomorrow, \
-    ScheduleForWeek, ScheduleForTwoWeek, LogOut
+    subGroupsKeyboard, SubGroupTwo, SubGroupOne, ScheduleForToday, ScheduleForTomorrow, \
+    ScheduleForTwoWeeks, LogOut, More, moreKeyboard, Back, SettingsChangeMinutesBeforeLessonsNotification, \
+    SettingsChangeMinutesBeforeLessonNotification
 from models import createUserIfNessessary, updateLearnUserNameAndPassword, getUsers, updateUserSubGroup, \
-    getUserByTelegramId, logoutUser
+    getUserByTelegramId, logoutUser, updateUserMinutesBeforeLessonsNotification, \
+    updateUserMinutesBeforeLessonNotification
 from requestsZTU import getProfile, getMarks, loginInLearn, getScheduleWithLinksForToday, getScheduleForToday, \
-    getScheduleForWeek, getScheduleForTwoWeek, isAuth
+    getScheduleForTwoWeek, isAuth, getScheduleForTomorrow
 
 load_dotenv()
 
@@ -45,12 +47,20 @@ async def notify():
     global schedules
     for telegramId in schedules:
         if schedules[telegramId] is not None:
-            for subject in schedules[telegramId]:
-                currentTimePlus10 = (datetime.datetime.now() + datetime.timedelta(minutes=10)).strftime("%H:%M")
-                subjectTime = subject['time'].split('-')[0]
-                if currentTimePlus10 == subjectTime:
+            user = getUserByTelegramId(telegramId)
+            currentTimeCustomPlus = (datetime.datetime.now() + datetime.timedelta(
+                minutes=user.minutesBeforeLessonsNotification)).strftime("%H:%M")
+            if len(schedules[telegramId]) > 0:
+                if schedules[telegramId][0]['time'].split('-')[0] == currentTimeCustomPlus:
                     await bot.send_message(telegramId,
-                                           f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / через 10 хвилин / {subject["link"]}')
+                                           f'Через {user.minutesBeforeLessonsNotification} хвилин початок пар')
+                for subject in schedules[telegramId]:
+                    currentTimeCustomPlus = (datetime.datetime.now() + datetime.timedelta(
+                        minutes=user.minutesBeforeLessonNotification)).strftime("%H:%M")
+                    subjectTime = subject['time'].split('-')[0]
+                    if currentTimeCustomPlus == subjectTime:
+                        await bot.send_message(telegramId,
+                                               f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / через {user.minutesBeforeLessonNotification} хвилин / {subject["link"]}')
 
 
 async def buildScheduleAndNotify():
@@ -59,6 +69,7 @@ async def buildScheduleAndNotify():
 
 
 async def scheduler():
+    aioschedule.every().minute.do(notify)
     aioschedule.every().day.at('08:20').do(buildScheduleAndNotify)
     aioschedule.every().day.at('09:50').do(buildScheduleAndNotify)
     aioschedule.every().day.at('11:30').do(buildScheduleAndNotify)
@@ -81,83 +92,109 @@ schedules = []
 
 @dp.message_handler(Command("start"), state=None)
 async def start(message: types.Message, state: FSMContext):
-    print(f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: /start')
+    print(
+        f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: /start')
     await state.finish()
     createUserIfNessessary(message.from_user.id, message.from_user.first_name, message.from_user.last_name,
                            message.from_user.username)
     result = isAuth(message.from_user.id)
     if result == True:
-        await message.answer("Виберіть дію:", reply_markup=mainKeyboard)
+        await message.answer("Розклад:", reply_markup=mainKeyboard)
     else:
         await writeUserName(message)
 
 
-@dp.message_handler(lambda message: message.text == Schedule)
-async def schedule(message: types.Message):
-    print(f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: schedule')
-    await message.answer("Розклад:", reply_markup=scheduleKeyboard)
-    await SelectScheduleTypeState.first()
+@dp.message_handler(Command("info"), state=None)
+async def info(message: types.Message, state: FSMContext):
+    await message.answer(
+        'Здоров. Я бот розкладу Житомирської політехніки. '
+        'Я можу показати тобі інформацію з твого особистого кабінету студента, розклад та також присилати сповіщення перед початком пар.\n\n'
+        'Склад "Віталік текнолоджі":\n'
+        '@grozer - кодіровщик,\n'
+        '@EgorWasBorn - піар менеджер, тестувальник,\n'
+        '@ngprdcr - тестувальник,\n'
+        '@Programmer_ZTU - тестувальник.'
+    )
+    await start(message, state)
 
 
-@dp.message_handler(state=SelectScheduleTypeState.ReadScheduleType)
-async def readScheduleType(message: types.Message, state: FSMContext):
-    scheduleType = message.text
+@dp.message_handler(lambda message: message.text == ScheduleForToday)
+async def scheduleForToday(message: types.Message):
+    print(
+        f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: schedule today')
     user = getUserByTelegramId(message.from_user.id)
-    if scheduleType == ScheduleForToday:
-        schedule = getScheduleForToday(user.groupName, user.subGroup)
-        if type(schedule) == str:
-            await message.answer(schedule, reply_markup=mainKeyboard)
-        elif type(schedule) == list:
-            for subject in schedule:
-                await message.answer(
-                    f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / {subject["time"]} / {subject["teacher"].split(" ")[0]}',
-                    reply_markup=mainKeyboard)
-        else:
-            await message.answer('Помилка!!', reply_markup=mainKeyboard)
+    schedule = getScheduleForToday(user.groupName, user.subGroup)
+    if type(schedule) == str:
+        await message.answer(schedule, reply_markup=mainKeyboard)
+    elif type(schedule) == list:
+        for subject in schedule:
+            await message.answer(
+                f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / {subject["time"]} / {subject["teacher"].split(" ")[0]}',
+                reply_markup=mainKeyboard)
+    else:
+        await message.answer('Помилка!!', reply_markup=mainKeyboard)
 
-    elif scheduleType == ScheduleForTomorrow:
-        await message.answer("На завтра", reply_markup=mainKeyboard)
 
-    elif scheduleType == ScheduleForWeek:
-        schedule = getScheduleForWeek(user.groupName, user.subGroup)
-        for day in schedule:
-            text = f'📅 <i><strong>{day}</strong></i>  {"🤯" if len(schedule[day]) > 3 else ""}\n'
-            for i, subject in enumerate(schedule[day]):
+@dp.message_handler(lambda message: message.text == ScheduleForTomorrow)
+async def scheduleForTomorrow(message: types.Message):
+    print(
+        f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: schedule tomorrow')
+    user = getUserByTelegramId(message.from_user.id)
+    schedule = getScheduleForTomorrow(user.groupName, user.subGroup)
+    for subject in schedule:
+        await message.answer(
+            f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / {subject["time"]} / {subject["teacher"].split(" ")[0]}',
+            reply_markup=mainKeyboard)
+
+
+@dp.message_handler(lambda message: message.text == ScheduleForTwoWeeks)
+async def scheduleForTwoWeeks(message: types.Message):
+    print(
+        f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: schedule 2 weeks')
+    user = getUserByTelegramId(message.from_user.id)
+    schedule = getScheduleForTwoWeek(user.groupName, user.subGroup)
+    for keyWeek in schedule:
+        await message.answer(f'🆘🆘🆘🆘🆘🆘🆘🆘  <strong>{keyWeek}</strong>  🆘🆘🆘🆘🆘🆘🆘🆘',
+                             reply_markup=mainKeyboard)
+        for keyDay in schedule[keyWeek]:
+            text = f'📅 <i><strong>{keyDay}</strong></i>  {"🤯" if len(schedule[keyWeek][keyDay]) > 3 else ""}\n'
+            for i, subject in enumerate(schedule[keyWeek][keyDay]):
                 text += f'<strong>{i + 1}) {subject["name"]}</strong> / {subject["cabinet"]} / {subject["time"]} / {subject["teacher"]}\n'
             await message.answer(text, reply_markup=mainKeyboard)
 
-    elif scheduleType == ScheduleForTwoWeek:
-        schedule = getScheduleForTwoWeek(user.groupName, user.subGroup)
-        for i, keyWeek in enumerate(schedule):
-            await message.answer(f'🆘                   <strong>{keyWeek}</strong>', reply_markup=mainKeyboard)
-            for keyDay in schedule[keyWeek]:
-                text = f'📅 <i><strong>{keyDay}</strong></i>  {"🤯" if len(schedule[keyWeek][keyDay]) > 3 else ""}\n'
-                for j, subject in enumerate(schedule[keyWeek][keyDay]):
-                    text += f'<strong>{j + 1}) {subject["name"]}</strong> / {subject["cabinet"]} / {subject["time"]} / {subject["teacher"]}\n'
-                await message.answer(text, reply_markup=mainKeyboard)
-            if i != len(schedule) - 1:
-                await message.answer(f'ᅠᅠᅠᅠᅠᅠ                   ᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠᅠ', reply_markup=mainKeyboard)
 
-    else:
-        await message.answer("Не правильно вибраний розклад!", reply_markup=mainKeyboard)
-    await state.finish()
+@dp.message_handler(lambda message: message.text == More)
+async def more(message: types.Message):
+    print(
+        f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: more')
+    await message.answer("Більше:", reply_markup=moreKeyboard)
+
+
+@dp.message_handler(lambda message: message.text == Back, state=None)
+async def back(message: types.Message, state: FSMContext):
+    print(
+        f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: back')
+    await start(message, state)
 
 
 @dp.message_handler(lambda message: message.text == Profile)
 async def profile(message: types.Message):
-    print(f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: profile')
+    print(
+        f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: profile')
     await message.answer(getProfile(message.from_user.id))
 
 
 @dp.message_handler(lambda message: message.text == Marks)
 async def marks(message: types.Message):
-    print(f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: marks')
+    print(
+        f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: marks')
     for msg in getMarks(message.from_user.id):
         await message.answer(msg)
 
 
 async def writeUserName(message: types.Message):
-    print(f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: login')
+    print(
+        f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: login')
     await message.answer("<strong>Авторизація в особистому кабінеті</strong>", reply_markup=types.ReplyKeyboardRemove())
     await message.answer("Learn логін:", reply_markup=types.ReplyKeyboardRemove())
     await LearnLogInState.first()
@@ -189,7 +226,8 @@ async def submitLogin(message: types.Message, state: FSMContext):
         # fernet = Fernet(key)
         # ctyptedPassword = fernet.encrypt(learnPassword.encode())
         updateLearnUserNameAndPassword(message.from_user.id, learnUserName, learnPassword)
-        await message.answer(f'Ви успішно увійшли в особистий кабінет', reply_markup=mainKeyboard)
+        await message.answer(f'Ви успішно увійшли в особистий кабінет')
+        await start(message, state)
     else:
         await message.answer(f'Не правильний логін або пароль')
         await writeUserName(message)
@@ -197,7 +235,8 @@ async def submitLogin(message: types.Message, state: FSMContext):
 
 @dp.message_handler(lambda message: message.text == Settings)
 async def settings(message: types.Message):
-    print(f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: settings')
+    print(
+        f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: settings')
     await message.answer("Виберіть налаштування:", reply_markup=settingsKeyboard)
     await SettingsState.first()
 
@@ -208,6 +247,14 @@ async def readSettingsAction(message: types.Message):
     if settingAction == SettingsChangeSubGroup:
         await message.answer("Виберіть підгрупу:", reply_markup=subGroupsKeyboard)
         await ChangeSubGroupState.first()
+    elif settingAction == SettingsChangeMinutesBeforeLessonsNotification:
+        await message.answer("Введіть час сповіщення перед парами (1-90 хвилин):",
+                             reply_markup=types.ReplyKeyboardMarkup())
+        await ChangeMinutesBeforeLessonsNotificationState.first()
+    elif settingAction == SettingsChangeMinutesBeforeLessonNotification:
+        await message.answer("Введіть час сповіщення перед парами (1-30 хвилин):",
+                             reply_markup=types.ReplyKeyboardMarkup())
+        await ChangeMinutesBeforeLessonNotificationState.first()
     else:
         await message.answer("Не правильно вибране налаштування!", reply_markup=mainKeyboard)
         await settings(message)
@@ -231,9 +278,52 @@ async def changeSubGroup(message: types.Message, state: FSMContext):
         await message.answer('Групу успішно змінено', reply_markup=mainKeyboard)
 
 
+@dp.message_handler(state=ChangeMinutesBeforeLessonsNotificationState.ReadMinutesBeforeLessonsNotification)
+async def changeMinutesBeforeLessonsNotification(message: types.Message, state: FSMContext):
+    await state.finish()
+    try:
+        minutesBeforeLessonsNotification = int(message.text)
+        if type(minutesBeforeLessonsNotification) is not int or minutesBeforeLessonsNotification < 1 or minutesBeforeLessonsNotification > 90:
+            await message.answer('Не правильно введене значення!')
+            await message.answer("Введіть час сповіщення перед парами (1-90 хвилин):",
+                                 reply_markup=types.ReplyKeyboardMarkup())
+            await ChangeMinutesBeforeLessonsNotificationState.first()
+        else:
+            updateUserMinutesBeforeLessonsNotification(message.from_user.id, minutesBeforeLessonsNotification)
+            await message.answer(f'Час сповіщення перед парами успішно змінено на {minutesBeforeLessonsNotification} хвилин', reply_markup=mainKeyboard)
+            await start(message, state)
+    except:
+        await message.answer('Не правильно введене значення!')
+        await message.answer("Введіть час сповіщення перед парами (1-90 хвилин):",
+                             reply_markup=types.ReplyKeyboardMarkup())
+        await ChangeMinutesBeforeLessonsNotificationState.first()
+
+
+@dp.message_handler(state=ChangeMinutesBeforeLessonNotificationState.ReadMinutesBeforeLessonNotification)
+async def changeMinutesBeforeLessonNotification(message: types.Message, state: FSMContext):
+    await state.finish()
+    try:
+        minutesBeforeLessonNotification = int(message.text)
+        if type(minutesBeforeLessonNotification) is not int or minutesBeforeLessonNotification < 1 or minutesBeforeLessonNotification > 30:
+            await message.answer('Не правильно введене значення!')
+            await message.answer("Введіть час сповіщення перед парою (1-30 хвилин):",
+                                 reply_markup=types.ReplyKeyboardMarkup())
+            await ChangeMinutesBeforeLessonNotificationState.first()
+        else:
+            updateUserMinutesBeforeLessonNotification(message.from_user.id, minutesBeforeLessonNotification)
+            await message.answer(f'Час сповіщення перед парою успішно змінено на {minutesBeforeLessonNotification} хвилин', reply_markup=mainKeyboard)
+            await start(message, state)
+    except:
+        await message.answer('Не правильно введене значення!')
+        await message.answer("Введіть час сповіщення перед парою (1-30 хвилин):",
+                             reply_markup=types.ReplyKeyboardMarkup())
+        await ChangeMinutesBeforeLessonsNotificationState.first()
+
+
 @dp.message_handler(lambda message: message.text == LogOut)
 async def logout(message: types.Message):
-    print(f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: logout')
+    print(
+        f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: logout')
     logoutUser(message.from_user.id)
     await message.answer("Ви вийшли із особистого кабінету")
     await writeUserName(message)

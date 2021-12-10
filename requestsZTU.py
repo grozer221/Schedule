@@ -216,7 +216,6 @@ def getScheduleFromTable(currentWeekTableItem, subGroup):
         tdItems.append(tdRowItems)
     schedule = {}
     for j in range(0, len(tdItems[1])):
-        scheduleForDay = {}
         scheduleForDayItems = []
         for i in range(1, len(trItems)):
             scheduleForDayItems.append(tdItems[i][j])
@@ -229,6 +228,32 @@ def getScheduleFromTable(currentWeekTableItem, subGroup):
         schedule[weekDay] = rozkladSubjects
     return schedule
 
+def getScheduleForTomorrow(groupName: str, subGroup: int):
+    responseRozklad = requests.get(urlRozkladGroup + groupName)
+    soup = BeautifulSoup(responseRozklad.text)
+
+    rozkladHeaderItem = soup.find('th', {'class': 'selected'})
+    rozkladDay = rozkladHeaderItem.find('div', {'class': 'message'}).text
+    if 'завтра' in rozkladDay:
+        rozkladPairItems = soup.find_all('td', {'class': 'content selected'})
+        rozkladSubjects = getScheduleByRozkladPairItemsForDay(rozkladPairItems, subGroup)
+        return rozkladSubjects
+    else:
+        tableItems = soup.find_all('table', {'class': 'schedule'})
+        currentWeekTableItem = None
+        for tableItem in tableItems:
+            selectedTableHeaderItem = tableItem.find('th', {'class': 'selected'})
+            if selectedTableHeaderItem is not None:
+                currentWeekTableItem = tableItem
+
+        scheduleForCurrentWeek = getScheduleFromTable(currentWeekTableItem, subGroup)
+        currentDay = f"{rozkladHeaderItem.text.replace(rozkladDay, '')} ({rozkladDay})"
+        isFoundTotay = False
+        for day in scheduleForCurrentWeek:
+            if isFoundTotay == True:
+                return scheduleForCurrentWeek[day]
+            if day in currentDay:
+                isFoundTotay = True
 
 def getScheduleForWeek(groupName: str, subGroup: int):
     responseRozklad = requests.get(urlRozkladGroup + groupName)
