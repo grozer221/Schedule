@@ -1,12 +1,19 @@
+import enum
 import os
 
+import cryptocode
 from dotenv import load_dotenv
-from sqlalchemy import Column, Integer, String, Boolean, create_engine, Text
+from sqlalchemy import Column, Integer, String, Boolean, create_engine, Text, Enum
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 load_dotenv()
 
 Base = declarative_base()
+
+
+class Role(enum.Enum):
+    admin = 'admin'
+    user = 'user'
 
 
 class User(Base):
@@ -16,6 +23,7 @@ class User(Base):
     username = Column(String(100))
     first_name = Column(String(100))
     last_name = Column(String(100))
+    role = Column(Enum(Role), default=Role.user)
 
     groupName = Column(String(100))
     subGroup = Column(Integer, default=1)
@@ -60,9 +68,10 @@ def createUserIfNessessary(telegramId: int, firstName: str, lastName: str, userN
 
 
 def updateLearnUserNameAndPassword(telegramId: int, userName: str, password: str):
+    cryptedPassword = cryptocode.encrypt(password, os.getenv('API_TOKEN'))
     user = getUserByTelegramId(telegramId)
     setattr(user, 'learnUserName', userName)
-    setattr(user, 'learnPassword', password)
+    setattr(user, 'learnPassword', cryptedPassword)
     session.commit()
 
 
@@ -82,6 +91,7 @@ def updateUserSubGroup(telegramId: int, subGroup: int):
     user = getUserByTelegramId(telegramId)
     setattr(user, 'subGroup', subGroup)
     session.commit()
+
 
 def updateUserMinutesBeforeLessonsNotification(telegramId: int, minutesBeforeLessonsNoification: int):
     user = getUserByTelegramId(telegramId)

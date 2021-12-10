@@ -17,9 +17,14 @@ class ChangeSubGroupState(StatesGroup):
 class ChangeMinutesBeforeLessonsNotificationState(StatesGroup):
     ReadMinutesBeforeLessonsNotification = State()
 
+
 class ChangeMinutesBeforeLessonNotificationState(StatesGroup):
     ReadMinutesBeforeLessonNotification = State()
 
 
 class SelectScheduleTypeState(StatesGroup):
     ReadScheduleType = State()
+
+
+class BroadcastState(StatesGroup):
+    ReadBroadcastText = State()

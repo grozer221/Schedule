@@ -15,10 +15,10 @@ from States import *
 from keyBoards import mainKeyboard, Profile, Marks, Settings, settingsKeyboard, SettingsChangeSubGroup, \
     subGroupsKeyboard, SubGroupTwo, SubGroupOne, ScheduleForToday, ScheduleForTomorrow, \
     ScheduleForTwoWeeks, LogOut, More, moreKeyboard, Back, SettingsChangeMinutesBeforeLessonsNotification, \
-    SettingsChangeMinutesBeforeLessonNotification, SettingsBack
+    SettingsChangeMinutesBeforeLessonNotification, SettingsBack, broadcastKeyboard, BroadcastBack
 from models import createUserIfNessessary, updateLearnUserNameAndPassword, getUsers, updateUserSubGroup, \
     getUserByTelegramId, logoutUser, updateUserMinutesBeforeLessonsNotification, \
-    updateUserMinutesBeforeLessonNotification
+    updateUserMinutesBeforeLessonNotification, Role
 from requestsZTU import getProfile, getMarks, loginInLearn, getScheduleWithLinksForToday, getScheduleForTwoWeek, isAuth, \
     getScheduleForTomorrow
 
@@ -109,49 +109,76 @@ async def start(message: types.Message, state: FSMContext):
 
 @dp.message_handler(Command("info"), state=None)
 async def info(message: types.Message, state: FSMContext):
+    print(
+        f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: /info')
     await message.answer(
         'Здоров. Я бот розкладу Житомирської політехніки. '
         'Я можу показати тобі інформацію з твого особистого кабінету студента, розклад та також присилати сповіщення перед початком пар.\n\n'
         'Склад "Віталік текнолоджі":\n'
         '@grozer - кодіровщик,\n'
         '@EgorWasBorn - піар менеджер, тестувальник,\n'
-        '@ngprdcr - тестувальник,\n'
+        '@ngprdcr - тестувальник, ректор,\n'
         '@Programmer_ZTU - тестувальник.'
     )
     await start(message, state)
 
 
+@dp.message_handler(Command("broadcast"), state=None)
+async def broadcast(message: types.Message, state: FSMContext):
+    print(
+        f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: /broadcast')
+    await message.answer('Повідомлення для розсилки:', reply_markup=broadcastKeyboard)
+    await BroadcastState.first()
+
+
+@dp.message_handler(state=BroadcastState.ReadBroadcastText)
+async def readBroadcastText(message: types.Message, state: FSMContext):
+    user = getUserByTelegramId(message.from_user.id)
+    if user.role == Role.admin:
+        messageText = message.text
+        if messageText == BroadcastBack:
+            await start(message, state)
+        else:
+            users = getUsers()
+            for user in users:
+                await bot.send_message(user.telegramId, messageText)
+        await state.finish()
+    else:
+        await message.answer('Недостатньо прав')
+        await state.finish()
+    await start(message, state)
+
+
 @dp.message_handler(lambda message: message.text == ScheduleForToday)
-async def scheduleForToday(message: types.Message):
+async def scheduleForToday(message: types.Message, state: FSMContext):
     print(
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: schedule today')
-    user = getUserByTelegramId(message.from_user.id)
     schedule = getScheduleWithLinksForToday(message.from_user.id)
-    if type(schedule) == str:
-        await message.answer(schedule, reply_markup=mainKeyboard)
-    elif type(schedule) == list:
+    if len(schedule) == 0:
+        await message.answer('Пар сьогодні немає')
+    else:
         for subject in schedule:
             await message.answer(
-                f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / {subject["time"]} / {subject["teacher"].split(" ")[0]} / {subject["link"]}',
+                f'<strong>{subject["name"]}</strong> / 🚪 {subject["type"]} {subject["cabinet"]} / ⏱️{subject["time"]} / 👨‍🏫 {subject["teacher"]} / 🔗 {subject["link"]}',
                 reply_markup=mainKeyboard)
-    else:
-        await message.answer('Помилка!!', reply_markup=mainKeyboard)
+    await start(message, state)
 
 
 @dp.message_handler(lambda message: message.text == ScheduleForTomorrow)
-async def scheduleForTomorrow(message: types.Message):
+async def scheduleForTomorrow(message: types.Message, state: FSMContext):
     print(
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: schedule tomorrow')
+    
     user = getUserByTelegramId(message.from_user.id)
     schedule = getScheduleForTomorrow(user.groupName, user.subGroup)
     for subject in schedule:
         await message.answer(
-            f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / {subject["time"]} / {subject["teacher"].split(" ")[0]}',
-            reply_markup=mainKeyboard)
+            f'<strong>{subject["name"]}</strong> / 🚪 {subject["type"]} {subject["cabinet"]} / ⏱️{subject["time"]} / 👨‍🏫 {subject["teacher"]}')
+    await start(message, state)
 
 
 @dp.message_handler(lambda message: message.text == ScheduleForTwoWeeks)
-async def scheduleForTwoWeeks(message: types.Message):
+async def scheduleForTwoWeeks(message: types.Message, state: FSMContext):
     print(
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: schedule 2 weeks')
     user = getUserByTelegramId(message.from_user.id)
@@ -160,10 +187,11 @@ async def scheduleForTwoWeeks(message: types.Message):
         await message.answer(f'🆘🆘🆘🆘🆘🆘🆘🆘  <strong>{keyWeek}</strong>  🆘🆘🆘🆘🆘🆘🆘🆘',
                              reply_markup=mainKeyboard)
         for keyDay in schedule[keyWeek]:
-            text = f'📅 <i><strong>{keyDay}</strong></i>  {"🤯" if len(schedule[keyWeek][keyDay]) > 3 else ""}\n'
+            text = f'📅 <i><strong>{keyDay}</strong></i>  {"🤯🧨" if len(schedule[keyWeek][keyDay]) > 3 else ""}\n'
             for i, subject in enumerate(schedule[keyWeek][keyDay]):
-                text += f'<strong>{i + 1}) {subject["name"]}</strong> / {subject["cabinet"]} / {subject["time"]} / {subject["teacher"]}\n'
-            await message.answer(text, reply_markup=mainKeyboard)
+                text += f'<strong>{i + 1}) {subject["name"]}</strong> / {subject["type"]} {subject["cabinet"]} / ⏱️{subject["time"]} / 👨‍🏫 {subject["teacher"]}\n'
+            await message.answer(text)
+    await start(message, state)
 
 
 @dp.message_handler(lambda message: message.text == More)
@@ -283,6 +311,7 @@ async def changeSubGroup(message: types.Message, state: FSMContext):
         updateUserSubGroup(message.from_user.id, subGroup)
         await message.answer('Групу успішно змінено')
         await settings(message)
+
 
 @dp.message_handler(state=ChangeMinutesBeforeLessonsNotificationState.ReadMinutesBeforeLessonsNotification)
 async def changeMinutesBeforeLessonsNotification(message: types.Message, state: FSMContext):

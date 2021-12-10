@@ -31,3 +31,9 @@ SubGroupTwo = 'Друга'
 subGroupsKeyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
 buttons = [SubGroupOne, SubGroupTwo]
 subGroupsKeyboard.add(*buttons)
+
+
+BroadcastBack = 'Назад'
+broadcastKeyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+buttons = [BroadcastBack]
+broadcastKeyboard.add(*buttons)
