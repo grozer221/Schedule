@@ -150,7 +150,7 @@ def getScheduleWithLinksForToday(telegramId: int):
         scheduleResult = []
         for subject in subjects:
             for rozkladSubject in rozkladSubjects:
-                if subject['time'] != rozkladSubject['time'] or subject['teacher'] != rozkladSubject['teacher']:
+                if subject['time'] != rozkladSubject['time'] or subject['cabinet'] != rozkladSubject['cabinet']:
                     continue
                 scheduleResult.append(subject)
         return scheduleResult

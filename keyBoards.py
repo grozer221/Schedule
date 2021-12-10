@@ -20,9 +20,10 @@ moreKeyboard.add(*buttons)
 SettingsChangeSubGroup = 'Змінити підгрупу'
 SettingsChangeMinutesBeforeLessonNotification = 'Змінити час сповіщення перед парою'
 SettingsChangeMinutesBeforeLessonsNotification = 'Змінити час сповіщення перед парами'
+SettingsBack = 'Назад'
 settingsKeyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
 buttons = [SettingsChangeSubGroup, SettingsChangeMinutesBeforeLessonNotification,
-           SettingsChangeMinutesBeforeLessonsNotification]
+           SettingsChangeMinutesBeforeLessonsNotification, SettingsBack]
 settingsKeyboard.add(*buttons)
 
 SubGroupOne = 'Перша'

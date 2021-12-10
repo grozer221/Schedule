@@ -15,12 +15,12 @@ from States import *
 from keyBoards import mainKeyboard, Profile, Marks, Settings, settingsKeyboard, SettingsChangeSubGroup, \
     subGroupsKeyboard, SubGroupTwo, SubGroupOne, ScheduleForToday, ScheduleForTomorrow, \
     ScheduleForTwoWeeks, LogOut, More, moreKeyboard, Back, SettingsChangeMinutesBeforeLessonsNotification, \
-    SettingsChangeMinutesBeforeLessonNotification
+    SettingsChangeMinutesBeforeLessonNotification, SettingsBack
 from models import createUserIfNessessary, updateLearnUserNameAndPassword, getUsers, updateUserSubGroup, \
     getUserByTelegramId, logoutUser, updateUserMinutesBeforeLessonsNotification, \
     updateUserMinutesBeforeLessonNotification
-from requestsZTU import getProfile, getMarks, loginInLearn, getScheduleWithLinksForToday, getScheduleForToday, \
-    getScheduleForTwoWeek, isAuth, getScheduleForTomorrow
+from requestsZTU import getProfile, getMarks, loginInLearn, getScheduleWithLinksForToday, getScheduleForTwoWeek, isAuth, \
+    getScheduleForTomorrow
 
 load_dotenv()
 
@@ -51,6 +51,8 @@ async def notify():
             currentTimeCustomPlus = (datetime.datetime.now() + datetime.timedelta(
                 minutes=user.minutesBeforeLessonsNotification)).strftime("%H:%M")
             if len(schedules[telegramId]) > 0:
+                print(f'before lessons [{telegramId}]', schedules[telegramId][0]['time'].split('-')[0],
+                      currentTimeCustomPlus)
                 if schedules[telegramId][0]['time'].split('-')[0] == currentTimeCustomPlus:
                     await bot.send_message(telegramId,
                                            f'Через {user.minutesBeforeLessonsNotification} хвилин початок пар')
@@ -58,6 +60,7 @@ async def notify():
                     currentTimeCustomPlus = (datetime.datetime.now() + datetime.timedelta(
                         minutes=user.minutesBeforeLessonNotification)).strftime("%H:%M")
                     subjectTime = subject['time'].split('-')[0]
+                    print(f'before lesson [{telegramId}]', currentTimeCustomPlus, subjectTime)
                     if currentTimeCustomPlus == subjectTime:
                         await bot.send_message(telegramId,
                                                f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / через {user.minutesBeforeLessonNotification} хвилин / {subject["link"]}')
@@ -123,13 +126,13 @@ async def scheduleForToday(message: types.Message):
     print(
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: schedule today')
     user = getUserByTelegramId(message.from_user.id)
-    schedule = getScheduleForToday(user.groupName, user.subGroup)
+    schedule = getScheduleWithLinksForToday(message.from_user.id)
     if type(schedule) == str:
         await message.answer(schedule, reply_markup=mainKeyboard)
     elif type(schedule) == list:
         for subject in schedule:
             await message.answer(
-                f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / {subject["time"]} / {subject["teacher"].split(" ")[0]}',
+                f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / {subject["time"]} / {subject["teacher"].split(" ")[0]} / {subject["link"]}',
                 reply_markup=mainKeyboard)
     else:
         await message.answer('Помилка!!', reply_markup=mainKeyboard)
@@ -242,7 +245,7 @@ async def settings(message: types.Message):
 
 
 @dp.message_handler(state=SettingsState.ReadSettingsAction)
-async def readSettingsAction(message: types.Message):
+async def readSettingsAction(message: types.Message, state: FSMContext):
     settingAction = message.text
     if settingAction == SettingsChangeSubGroup:
         await message.answer("Виберіть підгрупу:", reply_markup=subGroupsKeyboard)
@@ -255,6 +258,9 @@ async def readSettingsAction(message: types.Message):
         await message.answer("Введіть час сповіщення перед парами (1-30 хвилин):",
                              reply_markup=types.ReplyKeyboardMarkup())
         await ChangeMinutesBeforeLessonNotificationState.first()
+    elif settingAction == SettingsBack:
+        await state.finish()
+        await more(message)
     else:
         await message.answer("Не правильно вибране налаштування!", reply_markup=mainKeyboard)
         await settings(message)
@@ -275,8 +281,8 @@ async def changeSubGroup(message: types.Message, state: FSMContext):
             subGroup = 2
 
         updateUserSubGroup(message.from_user.id, subGroup)
-        await message.answer('Групу успішно змінено', reply_markup=mainKeyboard)
-
+        await message.answer('Групу успішно змінено')
+        await settings(message)
 
 @dp.message_handler(state=ChangeMinutesBeforeLessonsNotificationState.ReadMinutesBeforeLessonsNotification)
 async def changeMinutesBeforeLessonsNotification(message: types.Message, state: FSMContext):
@@ -290,8 +296,10 @@ async def changeMinutesBeforeLessonsNotification(message: types.Message, state: 
             await ChangeMinutesBeforeLessonsNotificationState.first()
         else:
             updateUserMinutesBeforeLessonsNotification(message.from_user.id, minutesBeforeLessonsNotification)
-            await message.answer(f'Час сповіщення перед парами успішно змінено на {minutesBeforeLessonsNotification} хвилин', reply_markup=mainKeyboard)
-            await start(message, state)
+            await message.answer(
+                f'Час сповіщення перед парами успішно змінено на {minutesBeforeLessonsNotification} хвилин',
+                reply_markup=mainKeyboard)
+            await settings(message)
     except:
         await message.answer('Не правильно введене значення!')
         await message.answer("Введіть час сповіщення перед парами (1-90 хвилин):",
@@ -311,8 +319,10 @@ async def changeMinutesBeforeLessonNotification(message: types.Message, state: F
             await ChangeMinutesBeforeLessonNotificationState.first()
         else:
             updateUserMinutesBeforeLessonNotification(message.from_user.id, minutesBeforeLessonNotification)
-            await message.answer(f'Час сповіщення перед парою успішно змінено на {minutesBeforeLessonNotification} хвилин', reply_markup=mainKeyboard)
-            await start(message, state)
+            await message.answer(
+                f'Час сповіщення перед парою успішно змінено на {minutesBeforeLessonNotification} хвилин',
+                reply_markup=mainKeyboard)
+            await settings(message)
     except:
         await message.answer('Не правильно введене значення!')
         await message.answer("Введіть час сповіщення перед парою (1-30 хвилин):",
