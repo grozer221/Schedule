@@ -27,43 +27,7 @@ def getScheduleByRozkladPairItemsForDay(rozkladPairItems, subGroup: int):
             continue
         subject['cabinet'] = subjectItem.find('span', {'class': 'room'}).text.rstrip().lstrip()
         subject['name'] = subjectItem.find('div', {'class': 'subject'}).text
-        teacher = subjectItem.find('div', {'class': 'teacher'}).text
-        emoji = ''
-        if 'Морозов Андрій Васильович' in teacher:
-            emoji += ' 🧙'
-        if 'Фізвиховання' in subject['name']:
-            emoji += ' 🏓'
-        if 'Лисогор Юрій Іванович' in teacher:
-            emoji += ' 🫖🧑🏻‍🎨'
-        if 'Окунькова Оксана Олексіївна' in teacher:
-            emoji += ' 🐡'
-        if 'Програмування мовою Python' in subject['name']:
-            emoji += ' 💩'
-        if 'Чижмотря Олексій Володимирович' in teacher:
-            emoji += ' 🚷'
-        if 'Давидчук Сергій Петрович' in subject['name']:
-            emoji += ' 🔫'
-        if 'Коротун Ольга Володимирівна' in teacher:
-            emoji += ' 🐉'
-        if 'Локтікова Тамара Миколаївна' in teacher:
-            emoji += ' 0️⃣1️⃣'
-        if 'Сугоняк Інна Іванівна' in teacher:
-            emoji += ' 💽'
-        if 'Колос Катерина Ростиславівна' in teacher:
-            emoji += ' 😡'
-        if 'Семенець Сергій Петрович' in teacher:
-            emoji += ' 🎰'
-        if 'Бабій Василь Дмитрович' in teacher:
-            emoji += ' 🤸'
-        if 'Іноземна мова' in subject['name']:
-            emoji += ' 🇺🇸'
-        if 'Котенко Володимир Миколайович' in teacher:
-            emoji += ' ⚡️'
-        if 'Філіпов Валерій Олександрович' in teacher:
-            emoji += ' ⚡️'
-        if 'Біляк Ірина Валеріївна' in teacher:
-            emoji += ' 🐱'
-        subject['teacher'] = teacher.split(" ")[0] + emoji
+        subject['teacher'] = subjectItem.find('div', {'class': 'teacher'}).text.split(" ")[0]
 
         rozkladSubjects.append(subject)
     return rozkladSubjects
