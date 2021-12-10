@@ -29,7 +29,8 @@ class User(Base):
     minutesBeforeLessonsNotification = Column(Integer, default=60)
 
 
-engine = create_engine(x if (x := os.environ.get('JAWSDB_URL')) else os.getenv('LOCAL_DB'))
+engine = create_engine(
+    x.replace("mysql://", "mysql+pymysql://", 1) if (x := os.environ.get('JAWSDB_URL')) else os.getenv('LOCAL_DB'))
 Session = sessionmaker()
 Session.configure(bind=engine)
 session = Session()
@@ -81,7 +82,6 @@ def updateUserSubGroup(telegramId: int, subGroup: int):
     user = getUserByTelegramId(telegramId)
     setattr(user, 'subGroup', subGroup)
     session.commit()
-
 
 def updateUserMinutesBeforeLessonsNotification(telegramId: int, minutesBeforeLessonsNoification: int):
     user = getUserByTelegramId(telegramId)
