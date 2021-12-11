@@ -44,7 +44,7 @@ async def getScheduleByRozkladPairItemsForDay(rozkladPairItems, subGroup: int):
 async def loginInLearn(telegramId: int, learnUserName: str, learnPassword: str):
     reqSession = requests.Session()
     responeLoginGet = reqSession.get(urlLogin)
-    soup = BeautifulSoup(responeLoginGet.text)
+    soup = BeautifulSoup(responeLoginGet.text, 'lxml')
     _csrf_frontend = soup.find('input', {'name': '_csrf-frontend'})['value']
     data = {
         '_csrf-frontend': _csrf_frontend,
@@ -55,7 +55,7 @@ async def loginInLearn(telegramId: int, learnUserName: str, learnPassword: str):
     responseLoginPost = reqSession.post(urlLogin, data=data)
     if "Неправильний логін або пароль" in responseLoginPost.text:
         return False
-    soup = BeautifulSoup(responseLoginPost.text)
+    soup = BeautifulSoup(responseLoginPost.text, 'lxml')
     tableProfile = soup.find('table', {'class': 'table table-bordered'})
     groupRowItem = tableProfile.find_all('tr')[4]
     groupName = groupRowItem.find('td').text.strip().lstrip()
@@ -70,9 +70,9 @@ async def loginInLearn(telegramId: int, learnUserName: str, learnPassword: str):
 
 async def isAuth(telegramId: int):
     user = await getUserByTelegramId(telegramId)
-    if user is None or user.learnUserName is None or user.learnUserName is '' or user.learnPassword is None or user.learnPassword is '':
+    if user is None or user.learnUserName is None or user.learnUserName == '' or user.learnPassword is None or user.learnPassword == '':
         return False
-    decryptedPassword = cryptocode.decrypt(user.learnPassword, os.getenv('API_TOKEN'))
+    decryptedPassword = cryptocode.decrypt(user.learnPassword, os.getenv('CRYPT_KEY'))
     if user.learnCookie is not None and user.learnCookie != '':
         reqSession = requests.Session()
         for cookie in json.loads(user.learnCookie):
@@ -93,7 +93,7 @@ async def getProfile(telegramId: int):
     for cookie in json.loads(user.learnCookie):
         reqSession.cookies.set(**cookie)
     response = reqSession.get(urlMain)
-    soup = BeautifulSoup(response.text)
+    soup = BeautifulSoup(response.text, 'lxml')
     tableItem = soup.find('table', {'class': 'table table-bordered'})
     rowItems = tableItem.find_all('tr')
     result = ''
@@ -110,7 +110,7 @@ async def getMarks(telegramId: int):
     for cookie in json.loads(user.learnCookie):
         reqSession.cookies.set(**cookie)
     response = reqSession.get(urlMain)
-    soup = BeautifulSoup(response.text)
+    soup = BeautifulSoup(response.text, 'lxml')
     tabPanelItems = soup.find_all('div', {'role': 'tabpanel'})
     navTabsItem = soup.find('ul', {'class': 'nav nav-tabs'})
     tabsItems = navTabsItem.find_all('a', {'role': 'tab'})
@@ -138,7 +138,7 @@ async def getScheduleWithLinksForToday(telegramId: int):
         for cookie in json.loads(user.learnCookie):
             reqSession.cookies.set(**cookie)
         responseSchedule = reqSession.get(urlSchedule)
-        soup = BeautifulSoup(responseSchedule.text)
+        soup = BeautifulSoup(responseSchedule.text, 'lxml')
         pairItems = soup.find_all('div', {'class': 'pair'})
         subjects = []
         for pairItem in pairItems:
@@ -154,7 +154,7 @@ async def getScheduleWithLinksForToday(telegramId: int):
             subjects.append(subject)
 
         responseRozklad = reqSession.get(urlRozkladGroup + user.groupName)
-        soup = BeautifulSoup(responseRozklad.text)
+        soup = BeautifulSoup(responseRozklad.text, 'lxml')
         rozkladPairItems = soup.find_all('td', {'class': 'content selected'})
         rozkladSubjects = await getScheduleByRozkladPairItemsForDay(rozkladPairItems, user.subGroup)
 
@@ -170,7 +170,7 @@ async def getScheduleWithLinksForToday(telegramId: int):
 
 # async def getScheduleForToday(groupName: str, subGroup: int):
 #     responseRozklad = requests.get(urlRozkladGroup + groupName)
-#     soup = BeautifulSoup(responseRozklad.text)
+#     soup = BeautifulSoup(responseRozklad.text, 'lxml')
 #
 #     rozkladHeaderItem = soup.find('th', {'class': 'selected'})
 #     rozkladDay = rozkladHeaderItem.find('div', {'class': 'message'}).text
@@ -206,7 +206,7 @@ async def getScheduleFromTable(currentWeekTableItem, subGroup):
 
 async def getScheduleForTomorrow(groupName: str, subGroup: int):
     responseRozklad = requests.get(urlRozkladGroup + groupName)
-    soup = BeautifulSoup(responseRozklad.text)
+    soup = BeautifulSoup(responseRozklad.text, 'lxml')
 
     rozkladHeaderItem = soup.find('th', {'class': 'selected'})
     rozkladDay = rozkladHeaderItem.find('div', {'class': 'message'}).text
@@ -244,7 +244,7 @@ async def getScheduleForTomorrow(groupName: str, subGroup: int):
 
 # async def getScheduleForWeek(groupName: str, subGroup: int):
 #     responseRozklad = requests.get(urlRozkladGroup + groupName)
-#     soup = BeautifulSoup(responseRozklad.text)
+#     soup = BeautifulSoup(responseRozklad.text, 'lxml')
 #     tableItems = soup.find_all('table', {'class': 'schedule'})
 #     currentWeekTableItem = None
 #     for tableItem in tableItems:
@@ -257,7 +257,7 @@ async def getScheduleForTomorrow(groupName: str, subGroup: int):
 
 async def getScheduleForTwoWeek(groupName: str, subGroup: int):
     responseRozklad = requests.get(urlRozkladGroup + groupName)
-    soup = BeautifulSoup(responseRozklad.text)
+    soup = BeautifulSoup(responseRozklad.text, 'lxml')
     tableItems = soup.find_all('table', {'class': 'schedule'})
     schedule = {}
     for i, tableItem in enumerate(tableItems):

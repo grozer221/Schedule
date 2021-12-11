@@ -99,7 +99,7 @@ async def start(message: types.Message, state: FSMContext):
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: /start')
     await state.finish()
     await createUserIfNessessary(message.from_user.id, message.from_user.first_name, message.from_user.last_name,
-                           message.from_user.username)
+                                 message.from_user.username)
     result = await isAuth(message.from_user.id)
     if result == True:
         await message.answer("Розклад:", reply_markup=mainKeyboard)
@@ -143,7 +143,7 @@ async def readBroadcastText(message: types.Message, state: FSMContext):
                 await bot.send_message(user.telegramId, messageText)
         await state.finish()
     else:
-        await message.answer('Недостатньо прав')
+        await message.answer('‼️ Недостатньо прав ‼️')
         await state.finish()
     await start(message, state)
 
@@ -154,7 +154,8 @@ async def scheduleForToday(message: types.Message, state: FSMContext):
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: schedule today')
     schedule = await getScheduleWithLinksForToday(message.from_user.id)
     if len(schedule) == 0:
-        await message.answer('Пар сьогодні немає')
+        await message.answer('🎉🎉 Пар сьогодні немає 🎉🎉')
+        await message.answer_sticker(r'CAACAgQAAxkBAAEDdiNhtJU0pIxJfgW3X4ArXFE-wi1ZfAACRAEAAqghIQa6r-zNMwJb3iME')
     else:
         for subject in schedule:
             await message.answer(
@@ -182,7 +183,6 @@ async def scheduleForTwoWeeks(message: types.Message, state: FSMContext):
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: schedule 2 weeks')
     user = await getUserByTelegramId(message.from_user.id)
     schedule = await getScheduleForTwoWeek(user.groupName, user.subGroup)
-    print(schedule)
     for keyWeek in schedule:
         await message.answer(f'🆘🆘🆘🆘🆘🆘🆘🆘  <strong>{keyWeek}</strong>  🆘🆘🆘🆘🆘🆘🆘🆘',
                              reply_markup=mainKeyboard)
@@ -256,10 +256,10 @@ async def submitLogin(message: types.Message, state: FSMContext):
     result = await loginInLearn(message.from_user.id, learnUserName, learnPassword)
     if result == True:
         await updateLearnUserNameAndPassword(message.from_user.id, learnUserName, learnPassword)
-        await message.answer(f'Ви успішно увійшли в особистий кабінет')
+        await message.answer(f'✅✅ Ви успішно увійшли в особистий кабінет ✅✅')
         await start(message, state)
     else:
-        await message.answer(f'Не правильний логін або пароль')
+        await message.answer(f'‼️‼️ Не правильний логін або пароль ‼️‼️')
         await writeUserName(message)
 
 
@@ -363,7 +363,7 @@ async def logout(message: types.Message):
     print(
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: logout')
     await logoutUser(message.from_user.id)
-    await message.answer("Ви вийшли із особистого кабінету")
+    await message.answer("⚠️⚠️ Ви вийшли із особистого кабінету ⚠️⚠️")
     await writeUserName(message)
 
 

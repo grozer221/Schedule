@@ -79,7 +79,7 @@ async def createUserIfNessessary(telegramId: int, firstName: str, lastName: str,
 async def updateLearnUserNameAndPassword(telegramId: int, userName: str, password: str):
     async with async_session() as session:
         async with session.begin():
-            cryptedPassword = cryptocode.encrypt(password, os.getenv('API_TOKEN'))
+            cryptedPassword = cryptocode.encrypt(password, os.getenv('CRYPT_KEY'))
             result = await session.execute(select(User).where(User.telegramId == telegramId))
             user = result.scalars().first()
             user.learnUserName = userName
