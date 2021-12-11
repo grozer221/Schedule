@@ -16,7 +16,7 @@ urlSchedule = urlMain + '/site/schedule'
 urlRozkladGroup = 'https://rozklad.ztu.edu.ua/schedule/group/'
 
 
-def getScheduleByRozkladPairItemsForDay(rozkladPairItems, subGroup: int):
+async def getScheduleByRozkladPairItemsForDay(rozkladPairItems, subGroup: int):
     rozkladSubjects = []
     for pairItem in rozkladPairItems:
         if pairItem.text.rstrip().lstrip() == '':
@@ -41,7 +41,7 @@ def getScheduleByRozkladPairItemsForDay(rozkladPairItems, subGroup: int):
     return rozkladSubjects
 
 
-def loginInLearn(telegramId: int, learnUserName: str, learnPassword: str):
+async def loginInLearn(telegramId: int, learnUserName: str, learnPassword: str):
     reqSession = requests.Session()
     responeLoginGet = reqSession.get(urlLogin)
     soup = BeautifulSoup(responeLoginGet.text)
@@ -59,20 +59,20 @@ def loginInLearn(telegramId: int, learnUserName: str, learnPassword: str):
     tableProfile = soup.find('table', {'class': 'table table-bordered'})
     groupRowItem = tableProfile.find_all('tr')[4]
     groupName = groupRowItem.find('td').text.strip().lstrip()
-    updateUserGroup(telegramId, groupName)
+    await updateUserGroup(telegramId, groupName)
     cookies = [
         {'domain': cookie.domain, 'name': cookie.name, 'path': cookie.path, 'value': cookie.value}
         for cookie in reqSession.cookies
     ]
-    updateUserCookie(telegramId, json.dumps(cookies))
+    await updateUserCookie(telegramId, json.dumps(cookies))
     return True
 
 
-def isAuth(telegramId: int):
-    user = getUserByTelegramId(telegramId)
-    decryptedPassword = cryptocode.decrypt(user.learnPassword, os.getenv('API_TOKEN'))
-    if user is None or user.learnUserName is None or user.learnUserName is '' or decryptedPassword is None or decryptedPassword is '':
+async def isAuth(telegramId: int):
+    user = await getUserByTelegramId(telegramId)
+    if user is None or user.learnUserName is None or user.learnUserName is '' or user.learnPassword is None or user.learnPassword is '':
         return False
+    decryptedPassword = cryptocode.decrypt(user.learnPassword, os.getenv('API_TOKEN'))
     if user.learnCookie is not None and user.learnCookie != '':
         reqSession = requests.Session()
         for cookie in json.loads(user.learnCookie):
@@ -85,8 +85,8 @@ def isAuth(telegramId: int):
         return loginInLearn(user.telegramId, user.learnUserName, decryptedPassword)
 
 
-def getProfile(telegramId: int):
-    user = getUserByTelegramId(telegramId)
+async def getProfile(telegramId: int):
+    user = await getUserByTelegramId(telegramId)
     if user.learnCookie is None or user.learnCookie == '':
         return 'Увійдіть в особистий кабінет'
     reqSession = requests.Session()
@@ -102,8 +102,8 @@ def getProfile(telegramId: int):
     return result
 
 
-def getMarks(telegramId: int):
-    user = getUserByTelegramId(telegramId)
+async def getMarks(telegramId: int):
+    user = await getUserByTelegramId(telegramId)
     if user.learnCookie is None or user.learnCookie == '':
         return ['Увійдіть в особистий кабінет']
     reqSession = requests.Session()
@@ -131,8 +131,8 @@ def getMarks(telegramId: int):
     return result
 
 
-def getScheduleWithLinksForToday(telegramId: int):
-    user = getUserByTelegramId(telegramId)
+async def getScheduleWithLinksForToday(telegramId: int):
+    user = await getUserByTelegramId(telegramId)
     if user.learnCookie:
         reqSession = requests.Session()
         for cookie in json.loads(user.learnCookie):
@@ -156,7 +156,7 @@ def getScheduleWithLinksForToday(telegramId: int):
         responseRozklad = reqSession.get(urlRozkladGroup + user.groupName)
         soup = BeautifulSoup(responseRozklad.text)
         rozkladPairItems = soup.find_all('td', {'class': 'content selected'})
-        rozkladSubjects = getScheduleByRozkladPairItemsForDay(rozkladPairItems, user.subGroup)
+        rozkladSubjects = await getScheduleByRozkladPairItemsForDay(rozkladPairItems, user.subGroup)
 
         scheduleResult = []
         for subject in subjects:
@@ -168,21 +168,21 @@ def getScheduleWithLinksForToday(telegramId: int):
     return None
 
 
-def getScheduleForToday(groupName: str, subGroup: int):
-    responseRozklad = requests.get(urlRozkladGroup + groupName)
-    soup = BeautifulSoup(responseRozklad.text)
+# async def getScheduleForToday(groupName: str, subGroup: int):
+#     responseRozklad = requests.get(urlRozkladGroup + groupName)
+#     soup = BeautifulSoup(responseRozklad.text)
+#
+#     rozkladHeaderItem = soup.find('th', {'class': 'selected'})
+#     rozkladDay = rozkladHeaderItem.find('div', {'class': 'message'}).text
+#     if 'сьогодні' in rozkladDay:
+#         rozkladPairItems = soup.find_all('td', {'class': 'content selected'})
+#         rozkladSubjects = await getScheduleByRozkladPairItemsForDay(rozkladPairItems, subGroup)
+#         return rozkladSubjects
+#     else:
+#         return 'Пар сьогодні немає'
 
-    rozkladHeaderItem = soup.find('th', {'class': 'selected'})
-    rozkladDay = rozkladHeaderItem.find('div', {'class': 'message'}).text
-    if 'сьогодні' in rozkladDay:
-        rozkladPairItems = soup.find_all('td', {'class': 'content selected'})
-        rozkladSubjects = getScheduleByRozkladPairItemsForDay(rozkladPairItems, subGroup)
-        return rozkladSubjects
-    else:
-        return 'Пар сьогодні немає'
 
-
-def getScheduleFromTable(currentWeekTableItem, subGroup):
+async def getScheduleFromTable(currentWeekTableItem, subGroup):
     trItems = currentWeekTableItem.find_all('tr')
     thItems = trItems[0].find_all('th')
     tdItems = []
@@ -194,7 +194,7 @@ def getScheduleFromTable(currentWeekTableItem, subGroup):
         scheduleForDayItems = []
         for i in range(1, len(trItems)):
             scheduleForDayItems.append(tdItems[i][j])
-        rozkladSubjects = getScheduleByRozkladPairItemsForDay(scheduleForDayItems, subGroup)
+        rozkladSubjects = await getScheduleByRozkladPairItemsForDay(scheduleForDayItems, subGroup)
         weekDayItem = thItems[j + 1]
         weekDay = weekDayItem.text
         messageItem = weekDayItem.find('div', {'class': 'message'})
@@ -204,7 +204,7 @@ def getScheduleFromTable(currentWeekTableItem, subGroup):
     return schedule
 
 
-def getScheduleForTomorrow(groupName: str, subGroup: int):
+async def getScheduleForTomorrow(groupName: str, subGroup: int):
     responseRozklad = requests.get(urlRozkladGroup + groupName)
     soup = BeautifulSoup(responseRozklad.text)
 
@@ -212,7 +212,7 @@ def getScheduleForTomorrow(groupName: str, subGroup: int):
     rozkladDay = rozkladHeaderItem.find('div', {'class': 'message'}).text
     if 'завтра' in rozkladDay or 'початок тижня' in rozkladDay:
         rozkladPairItems = soup.find_all('td', {'class': 'content selected'})
-        rozkladSubjects = getScheduleByRozkladPairItemsForDay(rozkladPairItems, subGroup)
+        rozkladSubjects = await getScheduleByRozkladPairItemsForDay(rozkladPairItems, subGroup)
         return rozkladSubjects
     else:
         tableItems = soup.find_all('table', {'class': 'schedule'})
@@ -222,7 +222,7 @@ def getScheduleForTomorrow(groupName: str, subGroup: int):
             if selectedTableHeaderItem is not None:
                 currentWeekTableItem = tableItem
 
-        scheduleForCurrentWeek = getScheduleFromTable(currentWeekTableItem, subGroup)
+        scheduleForCurrentWeek = await getScheduleFromTable(currentWeekTableItem, subGroup)
         currentDay = f"{rozkladHeaderItem.text.replace(rozkladDay, '')} ({rozkladDay})"
         isFoundTotay = False
         for day in scheduleForCurrentWeek:
@@ -237,29 +237,29 @@ def getScheduleForTomorrow(groupName: str, subGroup: int):
             if selectedTableHeaderItem is None:
                 currentWeekTableItem = tableItem
 
-        scheduleForCurrentWeek = getScheduleFromTable(currentWeekTableItem, subGroup)
+        scheduleForCurrentWeek = await getScheduleFromTable(currentWeekTableItem, subGroup)
         keys = list(scheduleForCurrentWeek.keys())
         return scheduleForCurrentWeek[keys[0]]
 
 
-def getScheduleForWeek(groupName: str, subGroup: int):
-    responseRozklad = requests.get(urlRozkladGroup + groupName)
-    soup = BeautifulSoup(responseRozklad.text)
-    tableItems = soup.find_all('table', {'class': 'schedule'})
-    currentWeekTableItem = None
-    for tableItem in tableItems:
-        selectedTableHeaderItem = tableItem.find('th', {'class': 'selected'})
-        if selectedTableHeaderItem is not None:
-            currentWeekTableItem = tableItem
+# async def getScheduleForWeek(groupName: str, subGroup: int):
+#     responseRozklad = requests.get(urlRozkladGroup + groupName)
+#     soup = BeautifulSoup(responseRozklad.text)
+#     tableItems = soup.find_all('table', {'class': 'schedule'})
+#     currentWeekTableItem = None
+#     for tableItem in tableItems:
+#         selectedTableHeaderItem = tableItem.find('th', {'class': 'selected'})
+#         if selectedTableHeaderItem is not None:
+#             currentWeekTableItem = tableItem
+#
+#     return await getScheduleFromTable(currentWeekTableItem, subGroup)
 
-    return getScheduleFromTable(currentWeekTableItem, subGroup)
 
-
-def getScheduleForTwoWeek(groupName: str, subGroup: int):
+async def getScheduleForTwoWeek(groupName: str, subGroup: int):
     responseRozklad = requests.get(urlRozkladGroup + groupName)
     soup = BeautifulSoup(responseRozklad.text)
     tableItems = soup.find_all('table', {'class': 'schedule'})
     schedule = {}
     for i, tableItem in enumerate(tableItems):
-        schedule[f'{i + 1} тиждень'] = getScheduleFromTable(tableItem, subGroup)
+        schedule[f'{i + 1} тиждень'] = await getScheduleFromTable(tableItem, subGroup)
     return schedule
