@@ -263,3 +263,11 @@ async def getScheduleForTwoWeek(groupName: str, subGroup: int):
     for i, tableItem in enumerate(tableItems):
         schedule[f'{i + 1} тиждень'] = await getScheduleFromTable(tableItem, subGroup)
     return schedule
+
+async def getNewSubjectLinkForUser(telegramId: int, subjectStartTime: str):
+    scheduleForToday = await getScheduleWithLinksForToday(telegramId)
+    for subject in scheduleForToday:
+        if subject['time'].split('-')[0] == subjectStartTime:
+            return subject['link']
+
+

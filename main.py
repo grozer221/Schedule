@@ -1,7 +1,6 @@
 import asyncio
-import datetime
-import logging
 import os
+from datetime import datetime, timedelta
 
 import aioschedule
 from aiogram import Bot, Dispatcher, types
@@ -20,7 +19,7 @@ from models import createUserIfNessessary, updateLearnUserNameAndPassword, getUs
     getUserByTelegramId, logoutUser, updateUserMinutesBeforeLessonsNotification, \
     updateUserMinutesBeforeLessonNotification, Role, createConnection
 from requestsZTU import getProfile, getMarks, loginInLearn, getScheduleWithLinksForToday, getScheduleForTwoWeek, isAuth, \
-    getScheduleForTomorrow
+    getScheduleForTomorrow, getNewSubjectLinkForUser
 
 load_dotenv()
 
@@ -28,9 +27,7 @@ loop = asyncio.get_event_loop()
 bot = Bot(token=os.getenv('API_TOKEN'), parse_mode=types.ParseMode.HTML)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage, loop=loop)
-logging.basicConfig(format=u'%(filename)s [LINE:%(lineno)d] #%(levelname)-8s [%(asctime)s]  %(message)s',
-                    level=logging.INFO,
-                    )
+schedules = []
 
 
 async def buildSchedule():
@@ -41,25 +38,46 @@ async def buildSchedule():
     print("!!!Schedule is built!!!")
 
 
+async def updateScheduleForUser(telegramId: int):
+    global schedules
+    schedules[telegramId] = await getScheduleWithLinksForToday(telegramId)
+
+
 async def notify():
     global schedules
     for telegramId in schedules:
-        if schedules[telegramId] is not None:
+        if schedules[telegramId] is not None and len(schedules[telegramId]) > 0:
             user = await getUserByTelegramId(telegramId)
-            currentTimeCustomPlus = (datetime.datetime.now() + datetime.timedelta(
+            # notification before lessons
+            currentTimeCustomPlus = (datetime.now() + timedelta(
                 minutes=user.minutesBeforeLessonsNotification)).strftime("%H:%M")
-            if len(schedules[telegramId]) > 0:
-                if schedules[telegramId][0]['time'].split('-')[0] == currentTimeCustomPlus:
-                    message = f'Через {user.minutesBeforeLessonsNotification} хвилин початок пар'
-                    print(f'#{user.id} {user.first_name} {user.last_name} @{user.username}: {message}')
+            if schedules[telegramId][0]['time'].split('-')[0] == currentTimeCustomPlus:
+                message = f'Через {user.minutesBeforeLessonsNotification} хвилин початок пар'
+                print(f'#{user.telegramId} {user.first_name} {user.last_name} @{user.username}: {message}')
+                await bot.send_message(telegramId, message)
+            for subject in schedules[telegramId]:
+                # notification before lesson
+                subjectStartTime = subject['time'].split('-')[0]
+                currentDateTime = datetime.now()
+                currentTime = datetime.now().strftime("%H:%M")
+                currentTimeCustomPlus = (
+                        currentDateTime + timedelta(minutes=user.minutesBeforeLessonNotification)).strftime("%H:%M")
+                if subjectStartTime == currentTimeCustomPlus:
+                    message = f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / через {user.minutesBeforeLessonNotification} хвилин / {subject["link"]}'
+                    print(f'#{user.telegramId} {user.first_name} {user.last_name} @{user.username}: {message}')
                     await bot.send_message(telegramId, message)
-                for subject in schedules[telegramId]:
-                    currentTimeCustomPlus = (datetime.datetime.now() + datetime.timedelta(
-                        minutes=user.minutesBeforeLessonNotification)).strftime("%H:%M")
-                    subjectTime = subject['time'].split('-')[0]
-                    if currentTimeCustomPlus == subjectTime:
-                        message = f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / через {user.minutesBeforeLessonNotification} хвилин / {subject["link"]}'
-                        print(f'#{user.id} {user.first_name} {user.last_name} @{user.username}: {message}')
+
+                subject['link'] = 'Викладач ще не надав інформацію'
+                subjectStartTimeParsed = datetime.strptime(subjectStartTime, "%H:%M")
+                subjectStartTimePlus15 = (subjectStartTimeParsed + timedelta(minutes=15)).strftime("%H:%M")
+                # notification teacher added link
+                if 'Викладач ще не надав інформацію' in subject['link'] \
+                        and currentTimeCustomPlus > subjectStartTime and currentTime < subjectStartTimePlus15:
+                    newSubjectLink = await getNewSubjectLinkForUser(user.telegramId, subjectStartTime)
+                    if newSubjectLink != subject['link']:
+                        subject['link'] = newSubjectLink
+                        message = f'Викладач додав посилання / <strong>{subject["name"]}</strong> / {subject["cabinet"]} / {subject["time"]} / {subject["link"]}'
+                        print(f'#{user.telegramId} {user.first_name} {user.last_name} @{user.username}: {message}')
                         await bot.send_message(telegramId, message)
 
 
@@ -81,9 +99,8 @@ async def onStartup(_):
     await createConnection()
     asyncio.create_task(scheduler())
     await buildSchedule()
-
-
-schedules = []
+    await notify()
+    print('BOT has been started')
 
 
 @dp.message_handler(Command("start"), state=None)
@@ -301,6 +318,7 @@ async def changeSubGroup(message: types.Message, state: FSMContext):
             subGroup = 2
 
         await updateUserSubGroup(message.from_user.id, subGroup)
+        await updateScheduleForUser(message.from_user.id)
         await message.answer('Групу успішно змінено')
         await settings(message)
 
