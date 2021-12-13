@@ -67,7 +67,6 @@ async def notify():
                     print(f'#{user.telegramId} {user.first_name} {user.last_name} @{user.username}: {message}')
                     await bot.send_message(telegramId, message)
 
-                subject['link'] = 'Викладач ще не надав інформацію'
                 subjectStartTimeParsed = datetime.strptime(subjectStartTime, "%H:%M")
                 subjectStartTimePlus15 = (subjectStartTimeParsed + timedelta(minutes=15)).strftime("%H:%M")
                 # notification teacher added link
