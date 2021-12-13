@@ -42,7 +42,6 @@ async def buildSchedule():
 
 
 async def notify():
-    print('!!!Notify!!!')
     global schedules
     for telegramId in schedules:
         if schedules[telegramId] is not None:
@@ -50,35 +49,29 @@ async def notify():
             currentTimeCustomPlus = (datetime.datetime.now() + datetime.timedelta(
                 minutes=user.minutesBeforeLessonsNotification)).strftime("%H:%M")
             if len(schedules[telegramId]) > 0:
-                print(f'before lessons [{telegramId}]', schedules[telegramId][0]['time'].split('-')[0],
-                      currentTimeCustomPlus)
                 if schedules[telegramId][0]['time'].split('-')[0] == currentTimeCustomPlus:
-                    await bot.send_message(telegramId,
-                                           f'Через {user.minutesBeforeLessonsNotification} хвилин початок пар')
+                    message = f'Через {user.minutesBeforeLessonsNotification} хвилин початок пар'
+                    print(f'#{user.id} {user.first_name} {user.last_name} @{user.username}: {message}')
+                    await bot.send_message(telegramId, message)
                 for subject in schedules[telegramId]:
                     currentTimeCustomPlus = (datetime.datetime.now() + datetime.timedelta(
                         minutes=user.minutesBeforeLessonNotification)).strftime("%H:%M")
                     subjectTime = subject['time'].split('-')[0]
-                    print(f'before lesson [{telegramId}]', currentTimeCustomPlus, subjectTime)
                     if currentTimeCustomPlus == subjectTime:
-                        await bot.send_message(telegramId,
-                                               f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / через {user.minutesBeforeLessonNotification} хвилин / {subject["link"]}')
-
-
-async def buildScheduleAndNotify():
-    await buildSchedule()
-    await notify()
+                        message = f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / через {user.minutesBeforeLessonNotification} хвилин / {subject["link"]}'
+                        print(f'#{user.id} {user.first_name} {user.last_name} @{user.username}: {message}')
+                        await bot.send_message(telegramId, message)
 
 
 async def scheduler():
     aioschedule.every().minute.do(notify)
-    aioschedule.every().day.at('08:20').do(buildScheduleAndNotify)
-    aioschedule.every().day.at('09:50').do(buildScheduleAndNotify)
-    aioschedule.every().day.at('11:30').do(buildScheduleAndNotify)
-    aioschedule.every().day.at('13:20').do(buildScheduleAndNotify)
-    aioschedule.every().day.at('14:50').do(buildScheduleAndNotify)
-    aioschedule.every().day.at('16:20').do(buildScheduleAndNotify)
-    aioschedule.every().day.at('17:50').do(buildScheduleAndNotify)
+    aioschedule.every().day.at('08:20').do(buildSchedule)
+    aioschedule.every().day.at('09:50').do(buildSchedule)
+    aioschedule.every().day.at('11:30').do(buildSchedule)
+    aioschedule.every().day.at('13:20').do(buildSchedule)
+    aioschedule.every().day.at('14:50').do(buildSchedule)
+    aioschedule.every().day.at('16:20').do(buildSchedule)
+    aioschedule.every().day.at('17:50').do(buildSchedule)
     while True:
         await aioschedule.run_pending()
         await asyncio.sleep(1)
@@ -87,7 +80,7 @@ async def scheduler():
 async def onStartup(_):
     await createConnection()
     asyncio.create_task(scheduler())
-    await buildScheduleAndNotify()
+    await buildSchedule()
 
 
 schedules = []
@@ -282,7 +275,7 @@ async def readSettingsAction(message: types.Message, state: FSMContext):
                              reply_markup=types.ReplyKeyboardMarkup())
         await ChangeMinutesBeforeLessonsNotificationState.first()
     elif settingAction == SettingsChangeMinutesBeforeLessonNotification:
-        await message.answer("Введіть час сповіщення перед парами (1-30 хвилин):",
+        await message.answer("Введіть час сповіщення перед парою (1-30 хвилин):",
                              reply_markup=types.ReplyKeyboardMarkup())
         await ChangeMinutesBeforeLessonNotificationState.first()
     elif settingAction == SettingsBack:
