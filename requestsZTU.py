@@ -164,22 +164,10 @@ async def getScheduleWithLinksForToday(telegramId: int):
                 if subject['time'] != rozkladSubject['time'] or subject['cabinet'] != rozkladSubject['cabinet']:
                     continue
                 scheduleResult.append(subject)
+        # remove duplicated
+        scheduleResult = [dict(tupleized) for tupleized in set(tuple(item.items()) for item in scheduleResult)]
         return scheduleResult
     return None
-
-
-# async def getScheduleForToday(groupName: str, subGroup: int):
-#     responseRozklad = requests.get(urlRozkladGroup + groupName)
-#     soup = BeautifulSoup(responseRozklad.text, 'lxml')
-#
-#     rozkladHeaderItem = soup.find('th', {'class': 'selected'})
-#     rozkladDay = rozkladHeaderItem.find('div', {'class': 'message'}).text
-#     if 'сьогодні' in rozkladDay:
-#         rozkladPairItems = soup.find_all('td', {'class': 'content selected'})
-#         rozkladSubjects = await getScheduleByRozkladPairItemsForDay(rozkladPairItems, subGroup)
-#         return rozkladSubjects
-#     else:
-#         return 'Пар сьогодні немає'
 
 
 async def getScheduleFromTable(currentWeekTableItem, subGroup):
@@ -242,19 +230,6 @@ async def getScheduleForTomorrow(groupName: str, subGroup: int):
         return scheduleForCurrentWeek[keys[0]]
 
 
-# async def getScheduleForWeek(groupName: str, subGroup: int):
-#     responseRozklad = requests.get(urlRozkladGroup + groupName)
-#     soup = BeautifulSoup(responseRozklad.text, 'lxml')
-#     tableItems = soup.find_all('table', {'class': 'schedule'})
-#     currentWeekTableItem = None
-#     for tableItem in tableItems:
-#         selectedTableHeaderItem = tableItem.find('th', {'class': 'selected'})
-#         if selectedTableHeaderItem is not None:
-#             currentWeekTableItem = tableItem
-#
-#     return await getScheduleFromTable(currentWeekTableItem, subGroup)
-
-
 async def getScheduleForTwoWeek(groupName: str, subGroup: int):
     responseRozklad = requests.get(urlRozkladGroup + groupName)
     soup = BeautifulSoup(responseRozklad.text, 'lxml')
@@ -264,10 +239,9 @@ async def getScheduleForTwoWeek(groupName: str, subGroup: int):
         schedule[f'{i + 1} тиждень'] = await getScheduleFromTable(tableItem, subGroup)
     return schedule
 
+
 async def getNewSubjectLinkForUser(telegramId: int, subjectStartTime: str):
     scheduleForToday = await getScheduleWithLinksForToday(telegramId)
     for subject in scheduleForToday:
         if subject['time'].split('-')[0] == subjectStartTime:
             return subject['link']
-
-

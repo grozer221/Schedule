@@ -10,6 +10,7 @@ from aiogram.dispatcher.filters import Command
 from aiogram.utils import executor
 from dotenv import load_dotenv
 
+from antiFlood import antiFlood
 from States import *
 from keyBoards import mainKeyboard, Profile, Marks, Settings, settingsKeyboard, SettingsChangeSubGroup, \
     subGroupsKeyboard, SubGroupTwo, SubGroupOne, ScheduleForToday, ScheduleForTomorrow, \
@@ -63,7 +64,7 @@ async def notify():
                 currentTimeCustomPlus = (
                         currentDateTime + timedelta(minutes=user.minutesBeforeLessonNotification)).strftime("%H:%M")
                 if subjectStartTime == currentTimeCustomPlus:
-                    message = f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / через {user.minutesBeforeLessonNotification} хвилин / {subject["link"]}'
+                    message = f'<strong>{subject["name"]}</strong> / {subject["cabinet"]} / через {user.minutesBeforeLessonNotification} хвилин / {subject["teacher"]} / {subject["link"]}'
                     print(f'#{user.telegramId} {user.first_name} {user.last_name} @{user.username}: {message}')
                     await bot.send_message(telegramId, message)
 
@@ -75,20 +76,15 @@ async def notify():
                     newSubjectLink = await getNewSubjectLinkForUser(user.telegramId, subjectStartTime)
                     if newSubjectLink != subject['link']:
                         subject['link'] = newSubjectLink
-                        message = f'Викладач додав посилання / <strong>{subject["name"]}</strong> / {subject["cabinet"]} / {subject["time"]} / {subject["link"]}'
+                        message = f'Викладач {subject["teacher"]} додав посилання / <strong>{subject["name"]}</strong> / {subject["cabinet"]} / {subject["time"]} / {subject["link"]}'
                         print(f'#{user.telegramId} {user.first_name} {user.last_name} @{user.username}: {message}')
                         await bot.send_message(telegramId, message)
 
 
 async def scheduler():
     aioschedule.every().minute.do(notify)
-    aioschedule.every().day.at('08:20').do(buildSchedule)
-    aioschedule.every().day.at('09:50').do(buildSchedule)
-    aioschedule.every().day.at('11:30').do(buildSchedule)
-    aioschedule.every().day.at('13:20').do(buildSchedule)
-    aioschedule.every().day.at('14:50').do(buildSchedule)
-    aioschedule.every().day.at('16:20').do(buildSchedule)
-    aioschedule.every().day.at('17:50').do(buildSchedule)
+    timesNotification = ['08:00', '09:30', '11:10', '13:00', '14:30', '16:00', '17:30']
+    [aioschedule.every().day.at(timeNotification).do(buildSchedule) for timeNotification in timesNotification]
     while True:
         await aioschedule.run_pending()
         await asyncio.sleep(1)
@@ -103,6 +99,7 @@ async def onStartup(_):
 
 
 @dp.message_handler(Command("start"), state=None)
+@dp.throttled(antiFlood, rate=2)
 async def start(message: types.Message, state: FSMContext):
     print(
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: /start')
@@ -117,6 +114,7 @@ async def start(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(Command("info"), state=None)
+@dp.throttled(antiFlood, rate=2)
 async def info(message: types.Message, state: FSMContext):
     print(
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: /info')
@@ -133,6 +131,7 @@ async def info(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(Command("broadcast"), state=None)
+@dp.throttled(antiFlood, rate=2)
 async def broadcast(message: types.Message, state: FSMContext):
     print(
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: /broadcast')
@@ -141,6 +140,7 @@ async def broadcast(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(state=BroadcastState.ReadBroadcastText)
+@dp.throttled(antiFlood, rate=2)
 async def readBroadcastText(message: types.Message, state: FSMContext):
     user = await getUserByTelegramId(message.from_user.id)
     if user.role == Role.admin:
@@ -158,6 +158,7 @@ async def readBroadcastText(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(lambda message: message.text == ScheduleForToday)
+@dp.throttled(antiFlood, rate=2)
 async def scheduleForToday(message: types.Message, state: FSMContext):
     print(
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: schedule today')
@@ -174,6 +175,7 @@ async def scheduleForToday(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(lambda message: message.text == ScheduleForTomorrow)
+@dp.throttled(antiFlood, rate=2)
 async def scheduleForTomorrow(message: types.Message, state: FSMContext):
     print(
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: schedule tomorrow')
@@ -187,6 +189,7 @@ async def scheduleForTomorrow(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(lambda message: message.text == ScheduleForTwoWeeks)
+@dp.throttled(antiFlood, rate=2)
 async def scheduleForTwoWeeks(message: types.Message, state: FSMContext):
     print(
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: schedule 2 weeks')
@@ -204,6 +207,7 @@ async def scheduleForTwoWeeks(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(lambda message: message.text == More)
+@dp.throttled(antiFlood, rate=2)
 async def more(message: types.Message):
     print(
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: more')
@@ -211,6 +215,7 @@ async def more(message: types.Message):
 
 
 @dp.message_handler(lambda message: message.text == Back, state=None)
+@dp.throttled(antiFlood, rate=2)
 async def back(message: types.Message, state: FSMContext):
     print(
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: back')
@@ -218,6 +223,7 @@ async def back(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(lambda message: message.text == Profile)
+@dp.throttled(antiFlood, rate=2)
 async def profile(message: types.Message):
     print(
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: profile')
@@ -225,6 +231,7 @@ async def profile(message: types.Message):
 
 
 @dp.message_handler(lambda message: message.text == Marks)
+@dp.throttled(antiFlood, rate=2)
 async def marks(message: types.Message):
     print(
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: marks')
@@ -243,6 +250,7 @@ async def writeUserName(message: types.Message):
 
 
 @dp.message_handler(state=LearnLogInState.ReadUserName)
+@dp.throttled(antiFlood, rate=2)
 async def writePassword(message: types.Message, state: FSMContext):
     learnUserName = message.text
     await message.delete()
@@ -254,6 +262,7 @@ async def writePassword(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(state=LearnLogInState.ReadPassword)
+@dp.throttled(antiFlood, rate=2)
 async def submitLogin(message: types.Message, state: FSMContext):
     learnPassword = message.text
     await message.delete()
@@ -273,6 +282,7 @@ async def submitLogin(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(lambda message: message.text == Settings)
+@dp.throttled(antiFlood, rate=2)
 async def settings(message: types.Message):
     print(
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: settings')
@@ -281,6 +291,7 @@ async def settings(message: types.Message):
 
 
 @dp.message_handler(state=SettingsState.ReadSettingsAction)
+@dp.throttled(antiFlood, rate=2)
 async def readSettingsAction(message: types.Message, state: FSMContext):
     settingAction = message.text
     if settingAction == SettingsChangeSubGroup:
@@ -303,6 +314,7 @@ async def readSettingsAction(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(state=ChangeSubGroupState.ReadSubGroup)
+@dp.throttled(antiFlood, rate=2)
 async def changeSubGroup(message: types.Message, state: FSMContext):
     await state.finish()
     subGroup = message.text
@@ -323,6 +335,7 @@ async def changeSubGroup(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(state=ChangeMinutesBeforeLessonsNotificationState.ReadMinutesBeforeLessonsNotification)
+@dp.throttled(antiFlood, rate=2)
 async def changeMinutesBeforeLessonsNotification(message: types.Message, state: FSMContext):
     await state.finish()
     try:
@@ -346,6 +359,7 @@ async def changeMinutesBeforeLessonsNotification(message: types.Message, state: 
 
 
 @dp.message_handler(state=ChangeMinutesBeforeLessonNotificationState.ReadMinutesBeforeLessonNotification)
+@dp.throttled(antiFlood, rate=2)
 async def changeMinutesBeforeLessonNotification(message: types.Message, state: FSMContext):
     await state.finish()
     try:
@@ -369,6 +383,7 @@ async def changeMinutesBeforeLessonNotification(message: types.Message, state: F
 
 
 @dp.message_handler(lambda message: message.text == LogOut)
+@dp.throttled(antiFlood, rate=2)
 async def logout(message: types.Message):
     print(
         f'#{message.from_user.id} {message.from_user.first_name} {message.from_user.last_name} @{message.from_user.username}: logout')
