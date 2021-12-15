@@ -164,9 +164,16 @@ async def getScheduleWithLinksForToday(telegramId: int):
                 if subject['time'] != rozkladSubject['time'] or subject['cabinet'] != rozkladSubject['cabinet']:
                     continue
                 scheduleResult.append(subject)
+
         # remove duplicated
-        scheduleResult = [dict(tupleized) for tupleized in set(tuple(item.items()) for item in scheduleResult)]
-        return scheduleResult
+        seen = set()
+        scheduleResultWithoutDuplicate = []
+        for d in scheduleResult:
+            t = tuple(d.items())
+            if t not in seen:
+                seen.add(t)
+                scheduleResultWithoutDuplicate.append(d)
+        return scheduleResultWithoutDuplicate
     return None
 
 
