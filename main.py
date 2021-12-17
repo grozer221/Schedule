@@ -74,7 +74,7 @@ async def notify():
                 if 'Викладач ще не надав інформацію' in subject['link'] \
                         and currentTimeCustomPlus > subjectStartTime and currentTime < subjectStartTimePlus15:
                     newSubjectLink = await getNewSubjectLinkForUser(user.telegramId, subjectStartTime)
-                    if newSubjectLink != subject['link']:
+                    if newSubjectLink is not None and newSubjectLink != subject['link']:
                         subject['link'] = newSubjectLink
                         message = f'Викладач {subject["teacher"]} додав посилання / <strong>{subject["name"]}</strong> / {subject["cabinet"]} / {subject["time"]} / {subject["link"]}'
                         print(f'#{user.telegramId} {user.first_name} {user.last_name} @{user.username}: {message}')
